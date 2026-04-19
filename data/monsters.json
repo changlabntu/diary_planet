@@ -1,0 +1,74 @@
+[
+  {
+    "id": 1,
+    "diary_id": 1,
+    "name": "Lumie",
+    "color": "#9FE1CB",
+    "torsoColor": "#1D9E75",
+    "gem": "Perseverance",
+    "rarity": "common",
+    "pat_count": 3,
+    "is_displayed": true,
+    "starred": false
+  },
+  {
+    "id": 2,
+    "diary_id": 2,
+    "name": "Rollo",
+    "color": "#F4C0D1",
+    "torsoColor": "#D4537E",
+    "gem": "Care",
+    "rarity": "common",
+    "pat_count": 5,
+    "is_displayed": true,
+    "starred": true
+  },
+  {
+    "id": 3,
+    "diary_id": 3,
+    "name": "Solen",
+    "color": "#FAC775",
+    "torsoColor": "#BA7517",
+    "gem": "Gratitude",
+    "rarity": "rare",
+    "pat_count": 2,
+    "is_displayed": true,
+    "starred": false
+  },
+  {
+    "id": 4,
+    "diary_id": 4,
+    "name": "Pipo",
+    "color": "#CECBF6",
+    "torsoColor": "#7F77DD",
+    "gem": "Curiosity",
+    "rarity": "common",
+    "pat_count": 1,
+    "is_displayed": false,
+    "starred": false
+  },
+  {
+    "id": 5,
+    "diary_id": 6,
+    "name": "Mimsy",
+    "color": "#E8B8D8",
+    "torsoColor": "#B63A72",
+    "gem": "Genuineness",
+    "rarity": "common",
+    "pat_count": 4,
+    "is_displayed": true,
+    "starred": false
+  },
+  {
+    "id": 6,
+    "diary_id": 7,
+    "name": "Zorb",
+    "color": "#7BC9A8",
+    "torsoColor": "#0E7052",
+    "gem": "Bravery",
+    "rarity": "rare",
+    "pat_count": 0,
+    "is_displayed": true,
+    "starred": true
+  }
+]
