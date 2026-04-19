@@ -12,6 +12,7 @@ import Planet from './Planet';
 import Moon from './Moon';
 import OrbitingBody from './OrbitingBody';
 import PlanetMenu from './PlanetMenu';
+import ModeToggle from './ModeToggle';
 import CreatureAvatar from '../ui/CreatureAvatar';
 import { BG, darken } from '../../theme';
 
@@ -23,6 +24,13 @@ const CREATURE_BASE = 114;
 const PLANET_EDGE_PAD = 24;
 const WORLD_SCALE = 3;
 const COLLISION_DIST = 100;
+const MAX_PULL = 200;
+const LAUNCH_K = 0.05;
+const LAUNCH_DURATION = 2000;
+const LAUNCH_MAX_V = 2.0;
+const SPACE_REACH = 1.10;
+const SPACE_SPEED_MUL = 0.5;
+const RETURN_SPEED = 0.1;
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -33,14 +41,19 @@ function planetGeom(W, H) {
   return { cx, cy, r, topY: cy - r };
 }
 
-function clampToPlanet(x, y, W, H, pad = PLANET_EDGE_PAD) {
+function clampToPlanet(x, y, W, H, pad = PLANET_EDGE_PAD, maxMul = 1.0) {
   const { cx, cy, r } = planetGeom(W, H);
-  const rMax = Math.max(10, r - pad);
+  const rMax = Math.max(10, r * maxMul - pad);
   const dx = x - cx;
   const dy = y - cy;
   const d = Math.hypot(dx, dy);
   if (d <= rMax) return { x, y, hitEdge: false };
   return { x: cx + (dx / d) * rMax, y: cy + (dy / d) * rMax, hitEdge: true };
+}
+
+function isInSpace(x, y, W, H) {
+  const { cx, cy, r } = planetGeom(W, H);
+  return Math.hypot(x - cx, y - cy) > r;
 }
 
 function makeState(creature, W, H, index) {
@@ -79,10 +92,17 @@ function makeState(creature, W, H, index) {
     _dropTimer: 0,
     _dragStartX: 0,
     _dragStartY: 0,
+    _launching: false,
+    _launchTimer: 0,
+    _returning: false,
+    _anchorX: 0,
+    _anchorY: 0,
   };
 }
 
-export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager }) {
+export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, mode = 'move', onModeChange }) {
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
   const deployed = useMemo(() => monsters.filter((m) => m.is_displayed), [monsters]);
 
   const [size, setSize] = useState({ W: 0, H: 0 });
@@ -105,8 +125,8 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     let raf;
     let last =
       typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    const { topY } = planetGeom(W, H);
-    const baseYTop = Math.max(0, topY + 10);
+    const { topY, r: planetR } = planetGeom(W, H);
+    const baseYTop = Math.max(0, topY - planetR * (SPACE_REACH - 1) + 10);
 
     const step = (now) => {
       const dt = Math.min(now - last, 48);
@@ -125,6 +145,29 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         if (s.dragging) {
           s.walkPhase += dt * 0.024;
           continue;
+        }
+
+        if (!s._returning && !s._launching && isInSpace(s.x, s.y, W, H)) {
+          s._returning = true;
+        }
+
+        if (s._returning) {
+          const pg = planetGeom(W, H);
+          const dxc = pg.cx - s.x;
+          const dyc = pg.cy - s.y;
+          const dc = Math.hypot(dxc, dyc) || 1;
+          if (dc <= pg.r) {
+            s._returning = false;
+            s.timer = 0;
+          } else {
+            s.vx = (dxc / dc) * RETURN_SPEED;
+            s.vy = (dyc / dc) * RETURN_SPEED;
+            s.x += s.vx * dt;
+            s.y += s.vy * dt;
+            s.walkPhase += dt * 0.008;
+            if (Math.abs(s.vx) > 0.02) s.facingRight = s.vx > 0;
+            continue;
+          }
         }
 
         s.timer -= dt;
@@ -147,19 +190,26 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         s.vx *= 0.9;
         s.vy *= 0.9;
 
-        const maxV = s._dropping ? 0.25 : 0.06 * factor;
+        const baseMaxV = s._launching
+          ? LAUNCH_MAX_V
+          : s._dropping
+            ? 0.25
+            : 1 * factor;
+        const inSpace = isInSpace(s.x, s.y, W, H);
+        const maxV = inSpace ? baseMaxV * SPACE_SPEED_MUL : baseMaxV;
         s.vx = clamp(s.vx, -maxV, maxV);
         s.vy = clamp(s.vy, -maxV, maxV);
 
         s.x += s.vx * dt;
         s.y += s.vy * dt;
 
-        const clamped = clampToPlanet(s.x, s.y, W, H);
+        const clamped = clampToPlanet(s.x, s.y, W, H, 0, SPACE_REACH);
         if (clamped.hitEdge) {
           s.x = clamped.x;
           s.y = clamped.y;
-          s.vx *= -0.3;
-          s.vy *= -0.3;
+          s._returning = true;
+          s._launching = false;
+          s._launchTimer = 0;
           s.timer = 0;
         }
         if (s.x < xMin) { s.x = xMin; s.vx = Math.abs(s.vx) * 0.3; s.timer = 0; }
@@ -176,6 +226,13 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
           if (s._dropTimer > 400) {
             s._dropping = false;
             s._dropTimer = 0;
+          }
+        }
+        if (s._launching) {
+          s._launchTimer += dt;
+          if (s._launchTimer > LAUNCH_DURATION) {
+            s._launching = false;
+            s._launchTimer = 0;
           }
         }
       }
@@ -252,8 +309,8 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         }
       : undefined;
 
-  const { topY } = planetGeom(W || 1, H || 1);
-  const yTop = Math.max(0, topY + 10);
+  const { topY, r: planetR } = planetGeom(W || 1, H || 1);
+  const yTop = Math.max(0, topY - planetR * (SPACE_REACH - 1) + 10);
   const yBot = H - BOTTOM_PAD;
 
   const onDragBegin = useCallback((id) => {
@@ -264,18 +321,38 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     s.dragging = false;
     s._dragStartX = s.x;
     s._dragStartY = s.y;
+    s._anchorX = s.x;
+    s._anchorY = s.y;
+    s._launching = false;
+    s._launchTimer = 0;
   }, []);
 
   const onDragUpdate = useCallback((id, tx, ty) => {
     const s = statesRef.current.find((x) => x.id === id);
     if (!s || !s._pointerDown) return;
     const sc = scale.value || 1;
-    const wx = tx / sc;
-    const wy = ty / sc;
+    let wx = tx / sc;
+    let wy = ty / sc;
     if (!s.dragging && Math.hypot(wx, wy) > DRAG_DEAD_ZONE) {
       s.dragging = true;
     }
     if (!s.dragging) return;
+
+    if (modeRef.current === 'slingshot') {
+      const mag = Math.hypot(wx, wy);
+      if (mag > MAX_PULL) {
+        wx = (wx / mag) * MAX_PULL;
+        wy = (wy / mag) * MAX_PULL;
+      }
+      s.x = s._anchorX + wx;
+      s.y = s._anchorY + wy;
+      s.targetX = s.x;
+      s.targetY = s.y;
+      if (wx < -2) s.facingRight = true;
+      else if (wx > 2) s.facingRight = false;
+      return;
+    }
+
     const halfW = W / (2 * sc);
     const halfH = H / (2 * sc);
     const xMinD = W / 2 - halfW + 20;
@@ -284,7 +361,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     const yMaxD = H / 2 + halfH - 6;
     let nx = clamp(s._dragStartX + wx, xMinD, xMaxD);
     let ny = clamp(s._dragStartY + wy, yMinD, yMaxD);
-    const c = clampToPlanet(nx, ny, W, H);
+    const c = clampToPlanet(nx, ny, W, H, 0, SPACE_REACH);
     s.x = clamp(c.x, xMinD, xMaxD);
     s.y = clamp(c.y, yMinD, yMaxD);
     s.targetX = s.x; s.targetY = s.y;
@@ -301,14 +378,26 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     if (!wasDragging) {
       const c = deployedRef.current.find((m) => m.id === id);
       if (c && onSelectCreature) onSelectCreature(c);
-    } else {
-      s.targetX = s.x;
-      s.targetY = Math.min(yBot - 10, s.y + 22);
-      s.vy = 0.22;
-      s._dropping = true;
-      s._dropTimer = 0;
-      s.timer = 500;
+      return;
     }
+    if (modeRef.current === 'slingshot') {
+      const dx = s._anchorX - s.x;
+      const dy = s._anchorY - s.y;
+      s.vx = dx * LAUNCH_K;
+      s.vy = dy * LAUNCH_K;
+      s.targetX = s.x + dx * 6;
+      s.targetY = s.y + dy * 6;
+      s._launching = true;
+      s._launchTimer = 0;
+      s.timer = 10000;
+      return;
+    }
+    s.targetX = s.x;
+    s.targetY = Math.min(yBot - 10, s.y + 22);
+    s.vy = 0.22;
+    s._dropping = true;
+    s._dropTimer = 0;
+    s.timer = 500;
   }, [onSelectCreature, yBot]);
 
   const makePanGesture = (id) =>
@@ -429,6 +518,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                     const shadeT = clamp(shadeDist / pg.r, 0, 1);
                     const darkAmt = shadeT * 0.45;
                     const shadedC = { ...c, color: darken(c.color, darkAmt), torsoColor: darken(c.torsoColor, darkAmt) };
+                    const inSpace = Math.hypot(s.x - pg.cx, s.y - pg.cy) > pg.r;
                     return (
                       <CreaturePan
                         key={c.id}
@@ -437,6 +527,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                         s={s}
                         size={sz}
                         makeGesture={makePanGesture}
+                        inSpace={inSpace}
                       />
                     );
                   });
@@ -451,11 +542,12 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
           if (key === 'monsters' && onOpenManager) onOpenManager();
         }}
       />
+      <ModeToggle mode={mode} onChange={onModeChange} />
     </View>
   );
 }
 
-function CreaturePan({ id, monster, s, size, makeGesture }) {
+function CreaturePan({ id, monster, s, size, makeGesture, inSpace }) {
   const gesture = useMemo(() => makeGesture(id), [id]);
   return (
     <GestureDetector gesture={gesture}>
@@ -475,8 +567,8 @@ function CreaturePan({ id, monster, s, size, makeGesture }) {
           torsoColor={monster.torsoColor}
           size={size}
           facingRight={s.facingRight}
-          showShadow
-          walkPhase={s.walkPhase}
+          showShadow={!inSpace}
+          walkPhase={inSpace ? 0 : s.walkPhase}
           dragging={s.dragging}
         />
       </View>

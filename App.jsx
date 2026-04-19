@@ -24,6 +24,7 @@ export default function App() {
   const [writerOpen, setWriterOpen] = useState(false);
   const [selectedDiaryId, setSelectedDiaryId] = useState(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [planetMode, setPlanetMode] = useState('move');
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -112,6 +113,8 @@ export default function App() {
             monsters={enrichedMonsters}
             onSelectCreature={openDiaryFromMonster}
             onOpenManager={() => setManagerOpen(true)}
+            mode={planetMode}
+            onModeChange={setPlanetMode}
           />
         );
       case 'calendar':
