@@ -24,7 +24,7 @@ export default function App() {
   const [writerOpen, setWriterOpen] = useState(false);
   const [selectedDiaryId, setSelectedDiaryId] = useState(null);
   const [managerOpen, setManagerOpen] = useState(false);
-  const [planetMode, setPlanetMode] = useState('move');
+  const [planetMode, setPlanetMode] = useState('slingshot');
 
   const showToast = useCallback((msg) => {
     setToast(msg);

@@ -20,17 +20,33 @@ const BOTTOM_PAD = 0;
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2.5;
 const DRAG_DEAD_ZONE = 6;
-const CREATURE_BASE = 114;
+const CREATURE_BASE = 150;
 const PLANET_EDGE_PAD = 24;
 const WORLD_SCALE = 3;
 const COLLISION_DIST = 100;
 const MAX_PULL = 200;
-const LAUNCH_K = 0.05;
-const LAUNCH_DURATION = 2000;
-const LAUNCH_MAX_V = 2.0;
-const SPACE_REACH = 1.10;
-const SPACE_SPEED_MUL = 0.5;
-const RETURN_SPEED = 0.1;
+const LAUNCH_K = 0.4;
+const LAUNCH_DURATION = 3000;
+const LAUNCH_MAX_V = 5.0;
+
+// Physics tuning
+const WANDER_SEEK_X = 0.0001;       // horizontal seek strength (per ms)
+const WANDER_SEEK_Y = 0.0001;       // vertical seek strength (per ms)
+const WANDER_FRICTION = 0.9;        // per-frame velocity damping during wander
+const LAUNCH_FRICTION = 0.999;      // per-frame velocity damping during launch
+const WANDER_MAX_V = 0.06;          // base max velocity during wander
+const DROP_MAX_V = 0.25;            // max velocity during post-drag settle
+const DROP_DURATION = 400;          // ms that _dropping physics apply
+const WANDER_TIMER_MIN = 2500;      // ms
+const WANDER_TIMER_RANDOM = 4000;   // ms (added on top of MIN)
+const LAUNCH_TARGET_LOCK = LAUNCH_DURATION;
+const DROP_TARGET_LOCK = 500;       // ms before wander resumes after a drop
+const SPACE_RADIUS = 1.1;
+
+// Boundary: flat walls on left/right/bottom, circular top from planet.
+const WALL_PAD_X = 20;              // inset from viewport left/right
+const WALL_PAD_BOTTOM = 6;          // inset from viewport bottom
+const WALL_BOUNCE = 0.3;            // velocity retained after wall hit
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -41,39 +57,62 @@ function planetGeom(W, H) {
   return { cx, cy, r, topY: cy - r };
 }
 
-function clampToPlanet(x, y, W, H, pad = PLANET_EDGE_PAD, maxMul = 1.0) {
-  const { cx, cy, r } = planetGeom(W, H);
-  const rMax = Math.max(10, r * maxMul - pad);
-  const dx = x - cx;
-  const dy = y - cy;
-  const d = Math.hypot(dx, dy);
-  if (d <= rMax) return { x, y, hitEdge: false };
-  return { x: cx + (dx / d) * rMax, y: cy + (dy / d) * rMax, hitEdge: true };
-}
-
 function isInSpace(x, y, W, H) {
   const { cx, cy, r } = planetGeom(W, H);
   return Math.hypot(x - cx, y - cy) > r;
 }
 
-function makeState(creature, W, H, index) {
-  const seed = (creature.id * 37 + index * 71) | 0;
-  const sc = MIN_ZOOM;
+// Upper arc of the planet (SPACE_RADIUS * radius, minus pad) — the ceiling.
+function topCircleY(x, W, H, pad = PLANET_EDGE_PAD) {
+  const { cx, cy, r } = planetGeom(W, H);
+  const rMax = Math.max(10, r * SPACE_RADIUS - pad);
+  const dx = x - cx;
+  const inside = rMax * rMax - dx * dx;
+  if (inside <= 0) {
+    // x is outside the circle horizontally — ceiling is at the equator
+    return cy;
+  }
+  return cy - Math.sqrt(inside); // upper arc
+}
+
+// Zoom-aware viewport edges. The world view is scaled by `sc` (shared value),
+// so the visible edges in world coordinates expand as the user zooms out.
+function viewportBounds(W, H, sc) {
   const halfW = W / (2 * sc);
   const halfH = H / (2 * sc);
-  const xMin = W / 2 - halfW + 20;
-  const xMax = W / 2 + halfW - 20;
-  const { topY } = planetGeom(W, H);
-  const baseYTop = Math.max(0, topY + 10);
-  const yMin = Math.max(baseYTop, H / 2 - halfH);
-  const yMax = H / 2 + halfH - BOTTOM_PAD;
+  return {
+    xMin: W / 2 - halfW + WALL_PAD_X,
+    xMax: W / 2 + halfW - WALL_PAD_X,
+    yMax: H / 2 + halfH - BOTTOM_PAD - WALL_PAD_BOTTOM,
+  };
+}
+
+// Clamp a point into the fishbowl: flat left/right/bottom walls (zoom-aware),
+// curved upper ceiling from the planet's top arc.
+function clampToBounds(x, y, W, H, sc) {
+  const { xMin, xMax, yMax } = viewportBounds(W, H, sc);
+  const nx = clamp(x, xMin, xMax);
+  const yCeil = topCircleY(nx, W, H);
+  const yMin = yCeil;
+  const ny = clamp(y, yMin, yMax);
+  return {
+    x: nx,
+    y: ny,
+    hitLeft: x < xMin,
+    hitRight: x > xMax,
+    hitTop: y < yMin,
+    hitBottom: y > yMax,
+  };
+}
+
+function makeState(creature, W, H, index) {
+  const seed = (creature.id * 37 + index * 71) | 0;
+  const { xMin, xMax, yMax } = viewportBounds(W, H, MIN_ZOOM);
   const rx = (Math.abs(seed) % 1000) / 1000;
   const ry = (Math.abs(seed * 53) % 1000) / 1000;
-  let startX = xMin + rx * Math.max(1, xMax - xMin);
-  let startY = yMin + ry * Math.max(1, yMax - yMin);
-  const c = clampToPlanet(startX, startY, W, H);
-  startX = clamp(c.x, xMin, xMax);
-  startY = clamp(c.y, yMin, yMax);
+  const startX = xMin + rx * Math.max(1, xMax - xMin);
+  const yCeil = topCircleY(startX, W, H);
+  const startY = yCeil + 20 + ry * Math.max(1, yMax - yCeil - 40);
   return {
     id: creature.id,
     x: startX,
@@ -94,13 +133,20 @@ function makeState(creature, W, H, index) {
     _dragStartY: 0,
     _launching: false,
     _launchTimer: 0,
-    _returning: false,
     _anchorX: 0,
     _anchorY: 0,
   };
 }
 
-export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, mode = 'move', onModeChange }) {
+function pickWanderTarget(W, H, sc) {
+  const { xMin, xMax, yMax } = viewportBounds(W, H, sc);
+  const tx = xMin + Math.random() * Math.max(1, xMax - xMin);
+  const yCeil = topCircleY(tx, W, H);
+  const ty = yCeil + 20 + Math.random() * Math.max(1, yMax - yCeil - 40);
+  return { x: tx, y: ty };
+}
+
+export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, mode = 'slingshot', onModeChange }) {
   const modeRef = useRef(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   const deployed = useMemo(() => monsters.filter((m) => m.is_displayed), [monsters]);
@@ -125,105 +171,83 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     let raf;
     let last =
       typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
-    const { topY, r: planetR } = planetGeom(W, H);
-    const baseYTop = Math.max(0, topY - planetR * (SPACE_REACH - 1) + 10);
 
     const step = (now) => {
       const dt = Math.min(now - last, 48);
       last = now;
       const states = statesRef.current;
       const sc = scale.value || 1;
-      const halfW = W / (2 * sc);
-      const halfH = H / (2 * sc);
-      const xMin = W / 2 - halfW + 20;
-      const xMax = W / 2 + halfW - 20;
-      const yTop = Math.max(baseYTop, H / 2 - halfH);
-      const yBot = H / 2 + halfH - BOTTOM_PAD;
 
       for (let i = 0; i < states.length; i++) {
         const s = states[i];
         if (s.dragging) {
-          s.walkPhase += dt * 0.024;
+          if (!isInSpace(s.x, s.y, W, H)) s.walkPhase += dt * 0.024;
           continue;
-        }
-
-        if (!s._returning && !s._launching && isInSpace(s.x, s.y, W, H)) {
-          s._returning = true;
-        }
-
-        if (s._returning) {
-          const pg = planetGeom(W, H);
-          const dxc = pg.cx - s.x;
-          const dyc = pg.cy - s.y;
-          const dc = Math.hypot(dxc, dyc) || 1;
-          if (dc <= pg.r) {
-            s._returning = false;
-            s.timer = 0;
-          } else {
-            s.vx = (dxc / dc) * RETURN_SPEED;
-            s.vy = (dyc / dc) * RETURN_SPEED;
-            s.x += s.vx * dt;
-            s.y += s.vy * dt;
-            s.walkPhase += dt * 0.008;
-            if (Math.abs(s.vx) > 0.02) s.facingRight = s.vx > 0;
-            continue;
-          }
         }
 
         s.timer -= dt;
         if (s.timer <= 0) {
-          const tx = xMin + Math.random() * Math.max(1, xMax - xMin);
-          const ty = yTop + 10 + Math.random() * Math.max(1, yBot - yTop - 20);
-          const cTarget = clampToPlanet(tx, ty, W, H, PLANET_EDGE_PAD);
-          s.targetX = clamp(cTarget.x, xMin, xMax);
-          s.targetY = clamp(cTarget.y, yTop + 10, yBot);
-          s.timer = 2500 + Math.random() * 4000;
+          const t = pickWanderTarget(W, H, sc);
+          s.targetX = t.x;
+          s.targetY = t.y;
+          s.timer = WANDER_TIMER_MIN + Math.random() * WANDER_TIMER_RANDOM;
         }
 
         const dx = s.targetX - s.x;
         const dy = s.targetY - s.y;
-        const depth = clamp((s.y - yTop) / Math.max(1, yBot - yTop), 0, 1);
-        const factor = 0.3 + depth * 0.7;
 
-        s.vx += dx * 0.0003 * dt;
-        s.vy += dy * 0.0002 * dt;
-        s.vx *= 0.9;
-        s.vy *= 0.9;
+        if (s._launching) {
+          s.vx *= LAUNCH_FRICTION;
+          s.vy *= LAUNCH_FRICTION;
+        } else {
+          s.vx += dx * WANDER_SEEK_X * dt;
+          s.vy += dy * WANDER_SEEK_Y * dt;
+          s.vx *= WANDER_FRICTION;
+          s.vy *= WANDER_FRICTION;
+        }
 
-        const baseMaxV = s._launching
+        const maxV = s._launching
           ? LAUNCH_MAX_V
           : s._dropping
-            ? 0.25
-            : 1 * factor;
-        const inSpace = isInSpace(s.x, s.y, W, H);
-        const maxV = inSpace ? baseMaxV * SPACE_SPEED_MUL : baseMaxV;
+            ? DROP_MAX_V
+            : WANDER_MAX_V;
         s.vx = clamp(s.vx, -maxV, maxV);
         s.vy = clamp(s.vy, -maxV, maxV);
 
         s.x += s.vx * dt;
         s.y += s.vy * dt;
 
-        const clamped = clampToPlanet(s.x, s.y, W, H, 0, SPACE_REACH);
-        if (clamped.hitEdge) {
-          s.x = clamped.x;
-          s.y = clamped.y;
-          s._returning = true;
-          s._launching = false;
-          s._launchTimer = 0;
+        // Fishbowl boundary: flat left/right/bottom + curved top.
+        const b = clampToBounds(s.x, s.y, W, H, sc);
+        if (b.hitLeft)   { s.x = b.x; s.vx = Math.abs(s.vx) * WALL_BOUNCE;  s.timer = 0; }
+        if (b.hitRight)  { s.x = b.x; s.vx = -Math.abs(s.vx) * WALL_BOUNCE; s.timer = 0; }
+        if (b.hitBottom) { s.y = b.y; s.vy = -Math.abs(s.vy) * WALL_BOUNCE; }
+        if (b.hitTop)    {
+          // Reflect off the curved ceiling along its outward normal.
+          s.y = b.y;
+          const pg = planetGeom(W, H);
+          const nx = s.x - pg.cx;
+          const ny = s.y - pg.cy;
+          const nd = Math.hypot(nx, ny) || 1;
+          const onx = nx / nd;   // outward-from-planet-center = away from ceiling-into-bowl
+          const ony = ny / nd;
+          const vDotN = s.vx * onx + s.vy * ony;
+          if (vDotN < 0) {
+            s.vx -= 2 * vDotN * onx;
+            s.vy -= 2 * vDotN * ony;
+            s.vx *= WALL_BOUNCE;
+            s.vy *= WALL_BOUNCE;
+          }
           s.timer = 0;
         }
-        if (s.x < xMin) { s.x = xMin; s.vx = Math.abs(s.vx) * 0.3; s.timer = 0; }
-        if (s.x > xMax) { s.x = xMax; s.vx = -Math.abs(s.vx) * 0.3; s.timer = 0; }
-        if (s.y < yTop + 10) { s.y = yTop + 10; s.vy = Math.abs(s.vy) * 0.3; }
-        if (s.y > yBot) { s.y = yBot; s.vy = 0; }
 
         const speed = Math.hypot(s.vx, s.vy);
-        if (speed > 0.015) s.walkPhase += dt * 0.008;
+        if (speed > 0.015 && !isInSpace(s.x, s.y, W, H)) s.walkPhase += dt * 0.008;
         if (Math.abs(s.vx) > 0.02) s.facingRight = s.vx > 0;
 
         if (s._dropping) {
           s._dropTimer += dt;
-          if (s._dropTimer > 400) {
+          if (s._dropTimer > DROP_DURATION) {
             s._dropping = false;
             s._dropTimer = 0;
           }
@@ -237,6 +261,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         }
       }
 
+      // Creature-creature collision
       for (let i = 0; i < states.length; i++) {
         for (let j = i + 1; j < states.length; j++) {
           const a = states[i];
@@ -309,8 +334,8 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         }
       : undefined;
 
-  const { topY, r: planetR } = planetGeom(W || 1, H || 1);
-  const yTop = Math.max(0, topY - planetR * (SPACE_REACH - 1) + 10);
+  const { topY } = planetGeom(W || 1, H || 1);
+  const yTop = Math.max(0, topY + 10);
   const yBot = H - BOTTOM_PAD;
 
   const onDragBegin = useCallback((id) => {
@@ -353,21 +378,17 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
       return;
     }
 
-    const halfW = W / (2 * sc);
-    const halfH = H / (2 * sc);
-    const xMinD = W / 2 - halfW + 20;
-    const xMaxD = W / 2 + halfW - 20;
-    const yMinD = Math.max(yTop + 10, H / 2 - halfH);
-    const yMaxD = H / 2 + halfH - 6;
-    let nx = clamp(s._dragStartX + wx, xMinD, xMaxD);
-    let ny = clamp(s._dragStartY + wy, yMinD, yMaxD);
-    const c = clampToPlanet(nx, ny, W, H, 0, SPACE_REACH);
-    s.x = clamp(c.x, xMinD, xMaxD);
-    s.y = clamp(c.y, yMinD, yMaxD);
-    s.targetX = s.x; s.targetY = s.y;
+    // Move mode: clamp into fishbowl.
+    const nx = s._dragStartX + wx;
+    const ny = s._dragStartY + wy;
+    const c = clampToBounds(nx, ny, W, H, sc);
+    s.x = c.x;
+    s.y = c.y;
+    s.targetX = s.x;
+    s.targetY = s.y;
     if (wx > 2) s.facingRight = true;
     else if (wx < -2) s.facingRight = false;
-  }, [W, H, yBot, yTop, scale]);
+  }, [W, H, scale]);
 
   const onDragEnd = useCallback((id) => {
     const s = statesRef.current.find((x) => x.id === id);
@@ -389,7 +410,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
       s.targetY = s.y + dy * 6;
       s._launching = true;
       s._launchTimer = 0;
-      s.timer = 10000;
+      s.timer = LAUNCH_TARGET_LOCK;
       return;
     }
     s.targetX = s.x;
@@ -397,7 +418,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     s.vy = 0.22;
     s._dropping = true;
     s._dropTimer = 0;
-    s.timer = 500;
+    s.timer = DROP_TARGET_LOCK;
   }, [onSelectCreature, yBot]);
 
   const makePanGesture = (id) =>
@@ -527,6 +548,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                         s={s}
                         size={sz}
                         makeGesture={makePanGesture}
+                        showShadow={!inSpace}
                         inSpace={inSpace}
                       />
                     );
@@ -547,7 +569,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
   );
 }
 
-function CreaturePan({ id, monster, s, size, makeGesture, inSpace }) {
+function CreaturePan({ id, monster, s, size, makeGesture, showShadow = true, inSpace = false }) {
   const gesture = useMemo(() => makeGesture(id), [id]);
   return (
     <GestureDetector gesture={gesture}>
@@ -567,9 +589,10 @@ function CreaturePan({ id, monster, s, size, makeGesture, inSpace }) {
           torsoColor={monster.torsoColor}
           size={size}
           facingRight={s.facingRight}
-          showShadow={!inSpace}
-          walkPhase={inSpace ? 0 : s.walkPhase}
+          showShadow={showShadow}
+          walkPhase={s.walkPhase}
           dragging={s.dragging}
+          inSpace={inSpace}
         />
       </View>
     </GestureDetector>

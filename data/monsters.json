@@ -70,5 +70,41 @@
     "pat_count": 0,
     "is_displayed": true,
     "starred": true
+  },
+  {
+    "id": 7,
+    "diary_id": 5,
+    "name": "Nobi",
+    "color": "#CECBF6",
+    "torsoColor": "#7F77DD",
+    "gem": "Prudence",
+    "rarity": "common",
+    "pat_count": 1,
+    "is_displayed": true,
+    "starred": false
+  },
+  {
+    "id": 8,
+    "diary_id": 8,
+    "name": "Kesi",
+    "color": "#FAC775",
+    "torsoColor": "#BA7517",
+    "gem": "Hope",
+    "rarity": "common",
+    "pat_count": 0,
+    "is_displayed": true,
+    "starred": false
+  },
+  {
+    "id": 9,
+    "diary_id": 2,
+    "name": "Tuft",
+    "color": "#F4C0D1",
+    "torsoColor": "#D4537E",
+    "gem": "Faithfulness",
+    "rarity": "rare",
+    "pat_count": 2,
+    "is_displayed": false,
+    "starred": false
   }
 ]

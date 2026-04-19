@@ -14,6 +14,7 @@ export default function CreatureAvatar({
   showShadow = false,
   walkPhase = 0,
   dragging = false,
+  inSpace = false,
 }) {
   const vbW = 160;
   const vbH = 220;
@@ -40,8 +41,22 @@ export default function CreatureAvatar({
             <Stop offset="0.45" stopColor="#000" stopOpacity="0.18" />
             <Stop offset="1" stopColor="#000" stopOpacity="0" />
           </RadialGradient>
+          <RadialGradient id="auraGrad" cx="50%" cy="50%" rx="50%" ry="50%">
+            <Stop offset="0" stopColor="#6EA8FF" stopOpacity="0.12" />
+            <Stop offset="0.55" stopColor="#6EA8FF" stopOpacity="0.14" />
+            <Stop offset="1" stopColor="#6EA8FF" stopOpacity="0" />
+          </RadialGradient>
         </Defs>
         <G transform={transform}>
+          {inSpace && (
+            <Ellipse
+              cx={80}
+              cy={95}
+              rx={100}
+              ry={105}
+              fill="url(#auraGrad)"
+            />
+          )}
           {showShadow && (
             <Ellipse
               cx={80}

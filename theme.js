@@ -25,7 +25,7 @@ export const BG = {
   MUTED:   '#f8f7f4',
 };
 
-export const MAX_DEPLOYED = 5;
+export const MAX_DEPLOYED = 7;
 
 const clamp01 = (x) => Math.max(0, Math.min(1, x));
 
