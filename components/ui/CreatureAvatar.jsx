@@ -92,27 +92,6 @@ export default function CreatureAvatar({
             <Circle cx={60} cy={58} r={5} fill="#111" />
             <Circle cx={100} cy={58} r={10} fill="#fff" />
             <Circle cx={100} cy={58} r={5} fill="#111" />
-            <Path
-              d="M 74 78 L 86 78 L 80 86 Z"
-              fill="#E89FAE"
-              stroke="#111"
-              strokeWidth={1.5}
-              strokeLinejoin="round"
-            />
-            <Path
-              d="M 80 86 Q 76 92 71 90 M 80 86 Q 84 92 89 90"
-              fill="none"
-              stroke="#111"
-              strokeWidth={2}
-              strokeLinecap="round"
-            />
-            <Path
-              d="M 20 82 L 65 84 M 20 92 L 65 90 M 140 82 L 95 84 M 140 92 L 95 90"
-              fill="none"
-              stroke="#111"
-              strokeWidth={1.5}
-              strokeLinecap="round"
-            />
           </G>
         </G>
       </Svg>

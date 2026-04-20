@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
-import Svg, { Circle, Path, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import Modal from '../ui/Modal';
 import CreatureAvatar from '../ui/CreatureAvatar';
@@ -40,7 +40,6 @@ export default function DiarySheet({
   monster,
   onHatch,
   onRecall,
-  showTopOverlay = false,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedGem, setSelectedGem] = useState(null);
@@ -68,28 +67,10 @@ export default function DiarySheet({
   return (
     <>
       {open && (
-        <>
-          {showTopOverlay && (
-            <>
-              <View style={styles.topTextBg} pointerEvents="none" />
-              <View style={styles.topTextOverlayFade} pointerEvents="none">
-                <Svg width="100%" height="100%">
-                  <Defs>
-                    <LinearGradient id="overlayFade" x1="0" y1="0" x2="0" y2="1">
-                      <Stop offset="0" stopColor="#000" stopOpacity="0.75" />
-                      <Stop offset="1" stopColor="#000" stopOpacity="0" />
-                    </LinearGradient>
-                  </Defs>
-                  <Rect x="0" y="0" width="100%" height="100%" fill="url(#overlayFade)" />
-                </Svg>
-              </View>
-            </>
-          )}
-          <View style={styles.topTextOverlay} pointerEvents="none">
-            <Text style={styles.topDate}>{fmtDate(diary.created_at)}</Text>
-            <Text style={styles.topText}>{diary.content}</Text>
-          </View>
-        </>
+        <View style={styles.topTextOverlay} pointerEvents="none">
+          <Text style={styles.topDate}>{fmtDate(diary.created_at)}</Text>
+          <Text style={styles.topText}>{diary.content}</Text>
+        </View>
       )}
     <Modal
       open={open}
@@ -243,15 +224,6 @@ export default function DiarySheet({
 }
 
 const styles = StyleSheet.create({
-  topTextBg: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '33%',
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    zIndex: 60,
-  },
   topTextOverlay: {
     position: 'absolute',
     top: 0,
@@ -260,14 +232,6 @@ const styles = StyleSheet.create({
     height: '33%',
     paddingHorizontal: 24,
     paddingTop: 72,
-    zIndex: 61,
-  },
-  topTextOverlayFade: {
-    position: 'absolute',
-    top: '33%',
-    left: 0,
-    right: 0,
-    height: '10%',
     zIndex: 60,
   },
   topDate: {
