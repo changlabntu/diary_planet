@@ -57,7 +57,13 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} variant="sheet">
+    <Modal
+      open={open}
+      onClose={onClose}
+      variant="sheet"
+      sheetStyle={{ backgroundColor: 'rgba(14,7,38,0.95)' }}
+      backdropStyle={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
+    >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={20}

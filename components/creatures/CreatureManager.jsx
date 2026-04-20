@@ -11,8 +11,14 @@ import { ATTRIBUTES, fmtDate } from '../../theme';
 
 const STATUS_KEYS = ['all', 'deployed', 'idle', 'starred'];
 const STATUS_LABELS = { all: 'Total', deployed: 'On planet', idle: 'Idle', starred: 'Starred' };
-const PAGE_SIZE = 18;
-const GAP = 8;
+const PAGE_SIZE = 20;
+const GAP = 6;
+const COLS = 4;
+const ACCENT = ATTRIBUTES.A.mid;
+const DEPLOY_COLOR = ATTRIBUTES.A.mid;
+const RECALL_COLOR = ATTRIBUTES.C.mid;
+const SORT_OPTIONS = ['deployed', 'newest', 'oldest'];
+const SORT_LABELS = { deployed: 'Deployed', newest: 'Newest', oldest: 'Oldest' };
 
 export default function CreatureManager({
   open,
@@ -25,7 +31,7 @@ export default function CreatureManager({
   const [status, setStatus] = useState('all');
   const [cat, setCat] = useState('all');
   const [query, setQuery] = useState('');
-  const [sortDesc, setSortDesc] = useState(true);
+  const [sortBy, setSortBy] = useState('deployed');
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState(null);
   const [containerW, setContainerW] = useState(0);
@@ -40,6 +46,12 @@ export default function CreatureManager({
     [monsters],
   );
 
+  const attrCounts = useMemo(() => {
+    const c = { A: 0, B: 0, C: 0, D: 0 };
+    for (const m of monsters) if (c[m.attribute] != null) c[m.attribute]++;
+    return c;
+  }, [monsters]);
+
   const filtered = useMemo(() => {
     let list = monsters;
     if (status === 'deployed') list = list.filter((m) => m.is_displayed);
@@ -52,12 +64,15 @@ export default function CreatureManager({
     if (q) list = list.filter((m) => m.name.toLowerCase().includes(q));
 
     const sorted = [...list].sort((a, b) => {
+      if (sortBy === 'deployed' && a.is_displayed !== b.is_displayed) {
+        return a.is_displayed ? -1 : 1;
+      }
       const da = new Date(a.diary?.created_at || 0).getTime();
       const db = new Date(b.diary?.created_at || 0).getTime();
-      return sortDesc ? db - da : da - db;
+      return sortBy === 'oldest' ? da - db : db - da;
     });
     return sorted;
-  }, [monsters, status, cat, query, sortDesc]);
+  }, [monsters, status, cat, query, sortBy]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -68,10 +83,10 @@ export default function CreatureManager({
     [monsters, selectedId],
   );
 
-  const cardW = containerW > 0 ? Math.floor((containerW - GAP * 2) / 3) : 0;
+  const cardW = containerW > 0 ? Math.floor((containerW - GAP * (COLS - 1)) / COLS) : 0;
 
   return (
-    <Modal open={open} onClose={onClose} title="Monsters" variant="modal" maxWidth={520}>
+    <Modal open={open} onClose={onClose} title="Monsters" variant="sheet">
       <View style={styles.statusRow}>
         {STATUS_KEYS.map((k) => (
           <Pressable key={k} onPress={() => setStatus(k)} style={styles.statusCol}>
@@ -93,6 +108,7 @@ export default function CreatureManager({
             key={k}
             cat={k}
             active={cat === k}
+            label={`${ATTRIBUTES[k].label} (${attrCounts[k]})`}
             onPress={() => setCat(k)}
           />
         ))}
@@ -103,11 +119,16 @@ export default function CreatureManager({
           value={query}
           onChangeText={setQuery}
           placeholder="Search by name"
-          placeholderTextColor="rgba(0,0,0,0.35)"
+          placeholderTextColor="rgba(255,255,255,0.4)"
           style={styles.search}
         />
-        <Pressable onPress={() => setSortDesc((v) => !v)} style={styles.sortBtn}>
-          <Text style={styles.sortText}>{sortDesc ? 'Newest' : 'Oldest'}</Text>
+        <Pressable
+          onPress={() =>
+            setSortBy((s) => SORT_OPTIONS[(SORT_OPTIONS.indexOf(s) + 1) % SORT_OPTIONS.length])
+          }
+          style={styles.sortBtn}
+        >
+          <Text style={styles.sortText}>{SORT_LABELS[sortBy]}</Text>
         </Pressable>
       </View>
 
@@ -116,8 +137,8 @@ export default function CreatureManager({
         onLayout={(e) => setContainerW(e.nativeEvent.layout.width)}
       >
         {cardW > 0 &&
-          Array.from({ length: Math.ceil(pageItems.length / 3) }).map((_, rowIdx) => {
-            const rowItems = pageItems.slice(rowIdx * 3, rowIdx * 3 + 3);
+          Array.from({ length: Math.ceil(pageItems.length / COLS) }).map((_, rowIdx) => {
+            const rowItems = pageItems.slice(rowIdx * COLS, rowIdx * COLS + COLS);
             const rowHasSelected = rowItems.some((m) => m.id === selectedId);
             return (
               <View key={`row-${rowIdx}`}>
@@ -127,7 +148,7 @@ export default function CreatureManager({
                       key={m.id}
                       style={{
                         width: cardW,
-                        marginRight: col < 2 ? GAP : 0,
+                        marginRight: col < COLS - 1 ? GAP : 0,
                         marginBottom: GAP,
                       }}
                     >
@@ -230,60 +251,60 @@ function DetailPanel({ selected, onDeploy, onRecall, onStar }) {
 const styles = StyleSheet.create({
   statusRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
   statusCol: { alignItems: 'center', flex: 1, paddingVertical: 6 },
-  statusCount: { fontSize: 18, fontWeight: '700', color: '#17171a' },
-  statusLabel: { fontSize: 10, color: 'rgba(0,0,0,0.55)', marginTop: 2 },
-  statusActive: { color: '#6a60c4' },
+  statusCount: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.92)' },
+  statusLabel: { fontSize: 10, color: 'rgba(255,255,255,0.55)', marginTop: 2 },
+  statusActive: { color: ACCENT },
   statusUnderline: {
-    width: 20, height: 2, backgroundColor: '#6a60c4',
+    width: 20, height: 2, backgroundColor: ACCENT,
     borderRadius: 1, marginTop: 4,
   },
   catRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
   searchRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   search: {
     flex: 1,
-    backgroundColor: '#f2f0ea',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    color: '#17171a',
+    color: '#fff',
     fontSize: 13,
   },
   sortBtn: {
     marginLeft: 8, paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 10, backgroundColor: '#e2dfd5',
+    borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  sortText: { color: '#17171a', fontSize: 12, fontWeight: '600' },
+  sortText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' },
   gridWrap: {},
   row: { flexDirection: 'row' },
-  empty: { color: 'rgba(0,0,0,0.5)', fontStyle: 'italic', padding: 12 },
+  empty: { color: 'rgba(255,255,255,0.5)', fontStyle: 'italic', padding: 12 },
   detail: {
-    backgroundColor: '#f8f7f4',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     padding: 12, borderRadius: 12,
     marginTop: 8, marginBottom: 8,
   },
   detailHeader: { flexDirection: 'row', alignItems: 'center' },
-  detailName: { fontSize: 15, fontWeight: '700', color: '#17171a', marginRight: 8, flex: 1 },
-  detailGem: { color: '#444', fontSize: 12, marginLeft: 6 },
+  detailName: { fontSize: 15, fontWeight: '700', color: '#fff', marginRight: 8, flex: 1 },
+  detailGem: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginLeft: 6 },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
-  detailLabel: { color: '#444', fontSize: 12, marginRight: 8, fontWeight: '600' },
+  detailLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginRight: 8, fontWeight: '600' },
   detailEmotions: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
-  detailBody: { color: '#17171a', fontSize: 13, marginTop: 8, lineHeight: 18 },
-  detailDate: { color: 'rgba(0,0,0,0.5)', fontSize: 11, marginTop: 6 },
+  detailBody: { color: '#fff', fontSize: 13, marginTop: 8, lineHeight: 18 },
+  detailDate: { color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 6 },
   detailActions: { flexDirection: 'row', marginTop: 12 },
   actionBtn: {
     paddingHorizontal: 14, paddingVertical: 9,
     borderRadius: 10, marginRight: 8,
   },
-  deployBtn: { backgroundColor: '#6a60c4' },
-  recallBtn: { backgroundColor: '#3a6fa0' },
-  starBtn: { backgroundColor: '#e2dfd5' },
+  deployBtn: { backgroundColor: DEPLOY_COLOR },
+  recallBtn: { backgroundColor: RECALL_COLOR },
+  starBtn: { backgroundColor: 'rgba(255,255,255,0.12)' },
   actionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   paginationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   pageBtn: {
     paddingHorizontal: 14, paddingVertical: 6,
-    backgroundColor: '#e2dfd5', borderRadius: 8, marginHorizontal: 8,
+    backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8, marginHorizontal: 8,
   },
   pageBtnDisabled: { opacity: 0.35 },
-  pageText: { color: '#17171a', fontSize: 14, fontWeight: '700' },
-  pageLabel: { color: '#17171a', fontSize: 12 },
+  pageText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  pageLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
 });

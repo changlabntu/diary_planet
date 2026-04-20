@@ -4,7 +4,7 @@ import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
 import CreatureAvatar from '../ui/CreatureAvatar';
 import Gem from '../ui/Gem';
-import { ATTRIBUTES, cardBg, fmtDate } from '../../theme';
+import { ATTRIBUTES, BG, cardBg, fmtDate } from '../../theme';
 
 export default function CreatureCard({ monster, width, selected, onPress, onStar }) {
   const cat = monster.attribute;
@@ -22,7 +22,7 @@ export default function CreatureCard({ monster, width, selected, onPress, onStar
           width: cardW,
           opacity: pressed ? 0.9 : 1,
           borderColor: selected ? attrMid : 'transparent',
-          backgroundColor: monster.is_displayed ? '#1a1530' : '#fff',
+          backgroundColor: monster.is_displayed ? '#fff' : BG.SHEET,
         },
       ]}
     >
@@ -56,15 +56,15 @@ export default function CreatureCard({ monster, width, selected, onPress, onStar
       </View>
       <View style={styles.body}>
         <View style={styles.row}>
-          <Text style={[styles.name, { color: monster.is_displayed ? '#fff' : '#17171a' }]} numberOfLines={1}>
+          <Text style={[styles.name, { color: monster.is_displayed ? '#17171a' : '#fff' }]} numberOfLines={1}>
             {monster.name}
           </Text>
-          <Gem cat={cat} size={18} angle={0.55} />
+          <Gem cat={cat} size={14} angle={0.55} />
         </View>
         <Text
           style={[
             styles.date,
-            { color: monster.is_displayed ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.5)' },
+            { color: monster.is_displayed ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.55)' },
           ]}
         >
           {monster.dateLabel}
@@ -82,17 +82,17 @@ const styles = StyleSheet.create({
   },
   faceOverlay: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   starBtn: {
-    position: 'absolute', top: 6, left: 6,
+    position: 'absolute', top: 4, left: 4,
     backgroundColor: 'rgba(0,0,0,0.25)', borderRadius: 999,
-    width: 24, height: 24, alignItems: 'center', justifyContent: 'center',
+    width: 18, height: 18, alignItems: 'center', justifyContent: 'center',
   },
-  starText: { color: '#fff', fontSize: 14 },
+  starText: { color: '#fff', fontSize: 11 },
   deployedDot: {
-    position: 'absolute', bottom: 6, left: 6,
-    width: 8, height: 8, borderRadius: 4, backgroundColor: '#58e1a0',
+    position: 'absolute', bottom: 4, left: 4,
+    width: 6, height: 6, borderRadius: 3, backgroundColor: '#58e1a0',
   },
-  body: { paddingHorizontal: 8, paddingVertical: 6 },
+  body: { paddingHorizontal: 6, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  name: { fontSize: 13, fontWeight: '600', flex: 1, marginRight: 6 },
-  date: { fontSize: 10, marginTop: 2 },
+  name: { fontSize: 11, fontWeight: '600', flex: 1, marginRight: 4 },
+  date: { fontSize: 9, marginTop: 1 },
 });

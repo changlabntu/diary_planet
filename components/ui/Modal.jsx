@@ -14,6 +14,8 @@ export default function Modal({
   title,
   maxWidth = 420,
   variant = 'modal',
+  sheetStyle: sheetStyleProp,
+  backdropStyle: backdropStyleProp,
   children,
 }) {
   const progress = useSharedValue(0);
@@ -43,11 +45,11 @@ export default function Modal({
   if (variant === 'sheet') {
     return (
       <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyle]}>
+        <Animated.View style={[StyleSheet.absoluteFill, styles.backdrop, backdropStyleProp, backdropStyle]}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
         <View style={styles.sheetAnchor} pointerEvents="box-none">
-          <Animated.View style={[styles.sheet, sheetStyle]}>
+          <Animated.View style={[styles.sheet, sheetStyleProp, sheetStyle]}>
             <View style={styles.handleBar} />
             {title && <Text style={styles.sheetTitle}>{title}</Text>}
             <ScrollView

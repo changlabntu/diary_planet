@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { View, Text, Pressable, TextInput, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
+import Svg, { Circle, Path, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
 
 import Modal from '../ui/Modal';
 import CreatureAvatar from '../ui/CreatureAvatar';
@@ -8,6 +9,22 @@ import Gem from '../ui/Gem';
 import MoodDots from '../ui/MoodDots';
 import EmotionTag from '../ui/EmotionTag';
 import CategoryPill from '../ui/CategoryPill';
+
+function SpaceshipIcon({ size = 22, color = '#fff' }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path
+        d="M12 2 C14 2 15 6 15 10 L15 17 L9 17 L9 10 C9 6 10 2 12 2 Z"
+        fill={color}
+      />
+      <Path
+        d="M9 14 L5 20 L9 18 Z M15 14 L19 20 L15 18 Z M10 17 L12 21 L14 17 Z"
+        fill={color}
+      />
+      <Circle cx="12" cy="9" r="1.6" fill="#3a6fa0" />
+    </Svg>
+  );
+}
 import {
   ATTRIBUTES,
   GEMS,
@@ -23,22 +40,19 @@ export default function DiarySheet({
   monster,
   onHatch,
   onRecall,
-  onUpdateDiary,
+  showTopOverlay = false,
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [selectedGem, setSelectedGem] = useState(null);
   const [pickerCat, setPickerCat] = useState(diary?.attribute || 'A');
   const [gridW, setGridW] = useState(0);
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [rightH, setRightH] = useState(0);
 
   useEffect(() => {
     if (open) {
       setPickerOpen(false);
       setSelectedGem(null);
       setPickerCat(diary?.attribute || 'A');
-      setEditing(false);
-      setDraft(diary?.content || '');
     }
   }, [open, diary?.id]);
 
@@ -52,136 +66,109 @@ export default function DiarySheet({
   const gemList = GEMS[pickerCat] || [];
 
   return (
-    <Modal open={open} onClose={onClose} variant="sheet">
+    <>
+      {open && (
+        <>
+          {showTopOverlay && (
+            <>
+              <View style={styles.topTextBg} pointerEvents="none" />
+              <View style={styles.topTextOverlayFade} pointerEvents="none">
+                <Svg width="100%" height="100%">
+                  <Defs>
+                    <LinearGradient id="overlayFade" x1="0" y1="0" x2="0" y2="1">
+                      <Stop offset="0" stopColor="#000" stopOpacity="0.75" />
+                      <Stop offset="1" stopColor="#000" stopOpacity="0" />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect x="0" y="0" width="100%" height="100%" fill="url(#overlayFade)" />
+                </Svg>
+              </View>
+            </>
+          )}
+          <View style={styles.topTextOverlay} pointerEvents="none">
+            <Text style={styles.topDate}>{fmtDate(diary.created_at)}</Text>
+            <Text style={styles.topText}>{diary.content}</Text>
+          </View>
+        </>
+      )}
+    <Modal
+      open={open}
+      onClose={onClose}
+      variant="sheet"
+      backdropStyle={{ backgroundColor: 'transparent' }}
+      sheetStyle={{ marginBottom: 56, paddingBottom: 6 }}
+    >
       <View style={styles.header}>
-        {hatched ? (
-          <View style={styles.headerRow}>
+        <View style={styles.headerRow}>
+          {hatched ? (
             <CreatureAvatar
               color={monster.color}
               torsoColor={monster.torsoColor}
               size={64}
               showShadow
             />
-            <View style={styles.headerText}>
-              <Text style={styles.name}>{monster.name}</Text>
-              <Text style={styles.date}>{fmtDate(diary.created_at)}</Text>
-              <View style={styles.pillRow}>
-                <View style={[styles.pill, { backgroundColor: attrStyle.bg }]}>
-                  <Text style={[styles.pillText, { color: attrStyle.color }]}>
-                    {attrLabel}
-                  </Text>
-                </View>
+          ) : (
+            <EggIcon size={48} color={ATTRIBUTES[attrCat]?.hi || '#9DB9E8'} />
+          )}
+          <View style={styles.headerText}>
+            <Text style={styles.name}>{hatched ? monster.name : 'Unhatched egg'}</Text>
+            <Text style={styles.date}>{fmtDate(diary.created_at)}</Text>
+            <View style={styles.pillRow}>
+              <View style={[styles.pill, { backgroundColor: attrStyle.bg }]}>
+                <Text style={[styles.pillText, { color: attrStyle.color }]}>
+                  {attrLabel}
+                </Text>
+              </View>
+              {hatched && (
                 <View style={styles.gemPill}>
                   <Gem cat={attrCat} size={14} angle={0.6} />
                   <Text style={styles.gemText}>{monster.gem}</Text>
                 </View>
-              </View>
+              )}
             </View>
           </View>
-        ) : (
-          <View style={styles.headerRow}>
-            <EggIcon size={48} color={ATTRIBUTES[attrCat]?.hi || '#9DB9E8'} />
-            <View style={styles.headerText}>
-              <Text style={styles.name}>Unhatched egg</Text>
-              <Text style={styles.date}>{fmtDate(diary.created_at)}</Text>
-              <View style={styles.pillRow}>
-                <View style={[styles.pill, { backgroundColor: attrStyle.bg }]}>
-                  <Text style={[styles.pillText, { color: attrStyle.color }]}>
-                    {attrLabel}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
-      </View>
-
-      {diary.emotions?.length > 0 && (
-        <View style={styles.emotionRow}>
-          {diary.emotions.map((e) => (
-            <EmotionTag key={e} label={e} cat={attrCat} />
-          ))}
-        </View>
-      )}
-
-      <View style={styles.moodRow}>
-        <Text style={styles.label}>Mood</Text>
-        <MoodDots mood={diary.mood_score} cat={attrCat} />
-      </View>
-
-      {editing ? (
-        <View>
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            multiline
-            autoFocus
-            placeholder="Write your thoughts..."
-            placeholderTextColor="rgba(255,255,255,0.35)"
-            style={styles.bodyInput}
-          />
-          <View style={styles.editActions}>
+          {hatched && rightH > 0 && (
             <Pressable
-              onPress={() => {
-                setDraft(diary.content || '');
-                setEditing(false);
-              }}
+              onPress={
+                monster.is_displayed
+                  ? () => {
+                      onRecall && onRecall(monster.id);
+                      onClose && onClose();
+                    }
+                  : undefined
+              }
+              disabled={!monster.is_displayed}
+              hitSlop={6}
               style={({ pressed }) => [
-                styles.editBtn,
-                styles.editCancel,
-                { opacity: pressed ? 0.8 : 1 },
+                styles.recallIconBtn,
+                { width: rightH, height: rightH },
+                !monster.is_displayed && styles.recallIconBtnIdle,
+                { opacity: pressed ? 0.7 : 1 },
               ]}
             >
-              <Text style={styles.editCancelText}>Cancel</Text>
+              <SpaceshipIcon size={Math.max(16, rightH - 10)} color="#fff" />
             </Pressable>
-            <Pressable
-              onPress={() => {
-                if (onUpdateDiary) onUpdateDiary(diary.id, { content: draft });
-                setEditing(false);
-              }}
-              style={({ pressed }) => [
-                styles.editBtn,
-                styles.editSave,
-                { opacity: pressed ? 0.85 : 1 },
-              ]}
-            >
-              <Text style={styles.editSaveText}>Save</Text>
-            </Pressable>
-          </View>
-        </View>
-      ) : (
-        <Pressable
-          onPress={() => {
-            setDraft(diary.content || '');
-            setEditing(true);
-          }}
-          style={({ pressed }) => ({ opacity: pressed ? 0.85 : 1 })}
-        >
-          <Text style={styles.body}>{diary.content}</Text>
-        </Pressable>
-      )}
-
-      {hatched ? (
-        monster.is_displayed ? (
-          <Pressable
-            onPress={() => {
-              onRecall && onRecall(monster.id);
-              onClose && onClose();
-            }}
-            style={({ pressed }) => [
-              styles.actionBtn,
-              styles.recallBtn,
-              { opacity: pressed ? 0.85 : 1 },
-            ]}
+          )}
+          <View
+            style={styles.headerRight}
+            onLayout={(e) => setRightH(e.nativeEvent.layout.height)}
           >
-            <Text style={styles.actionText}>Recall from planet</Text>
-          </Pressable>
-        ) : (
-          <View style={[styles.actionBtn, styles.idlePill]}>
-            <Text style={styles.idleText}>Currently idle</Text>
+            {diary.emotions?.length > 0 && (
+              <View style={styles.emotionRow}>
+                {diary.emotions.map((e) => (
+                  <EmotionTag key={e} label={e} cat={attrCat} />
+                ))}
+              </View>
+            )}
+            <View style={styles.moodRow}>
+              <Text style={styles.label}>Mood</Text>
+              <MoodDots mood={diary.mood_score} cat={attrCat} />
+            </View>
           </View>
-        )
-      ) : pickerOpen ? (
+        </View>
+      </View>
+
+      {hatched ? null : pickerOpen ? (
         <View>
           <Text style={styles.label}>Pick a gem</Text>
           <View style={styles.catRow}>
@@ -251,13 +238,76 @@ export default function DiarySheet({
         </Pressable>
       )}
     </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  topTextBg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '33%',
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    zIndex: 60,
+  },
+  topTextOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '33%',
+    paddingHorizontal: 24,
+    paddingTop: 72,
+    zIndex: 61,
+  },
+  topTextOverlayFade: {
+    position: 'absolute',
+    top: '33%',
+    left: 0,
+    right: 0,
+    height: '10%',
+    zIndex: 60,
+  },
+  topDate: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
+  topText: {
+    color: '#fff',
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '500',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
+  },
   header: { marginBottom: 10 },
   headerRow: { flexDirection: 'row', alignItems: 'center' },
   headerText: { marginLeft: 12, flex: 1 },
+  headerRight: {
+    marginLeft: 8,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+    flexShrink: 1,
+  },
+  recallIconBtn: {
+    borderRadius: 8,
+    backgroundColor: '#3a6fa0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 6,
+  },
+  recallIconBtnIdle: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
   name: { color: '#fff', fontSize: 17, fontWeight: '600' },
   date: { color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 2 },
   pillRow: { flexDirection: 'row', marginTop: 6, flexWrap: 'wrap' },
@@ -272,10 +322,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
   gemText: { color: '#fff', fontSize: 11, marginLeft: 4 },
-  emotionRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 4, marginBottom: 8 },
+  emotionRow: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    marginBottom: 4,
+  },
   moodRow: {
     flexDirection: 'row', alignItems: 'center',
-    marginTop: 4, marginBottom: 10,
+    marginTop: 2,
   },
   label: { color: 'rgba(255,255,255,0.75)', fontSize: 12, marginRight: 8, fontWeight: '600' },
   body: {

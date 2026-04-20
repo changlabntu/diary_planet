@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -13,14 +13,17 @@ import Moon from './Moon';
 import OrbitingBody from './OrbitingBody';
 import PlanetMenu from './PlanetMenu';
 import ModeToggle from './ModeToggle';
+import ChordToggle from './ChordToggle';
 import CreatureAvatar from '../ui/CreatureAvatar';
+import MoonCanvas from '../../assets/MoonCanvas';
+import { CHIME_NOTES_MAJOR, CHIME_NOTES_MINOR, SECRET_SONG, playChime } from '../../assets/chimeSynth';
 import { BG, darken } from '../../theme';
 
 const BOTTOM_PAD = 0;
 const MIN_ZOOM = 0.6;
 const MAX_ZOOM = 2.5;
 const DRAG_DEAD_ZONE = 6;
-const CREATURE_BASE = 150;
+const CREATURE_BASE = 100;
 const PLANET_EDGE_PAD = 24;
 const WORLD_SCALE = 3;
 const COLLISION_DIST = 100;
@@ -47,6 +50,10 @@ const SPACE_RADIUS = 1.1;
 const WALL_PAD_X = 20;              // inset from viewport left/right
 const WALL_PAD_BOTTOM = 6;          // inset from viewport bottom
 const WALL_BOUNCE = 0.3;            // velocity retained after wall hit
+const SPIN_DURATION_MIN = 1000;      // ms — fastest possible hit-spin
+const SPIN_DURATION_MAX = 2000;      // ms — slowest possible hit-spin
+const SONG_NOTE_INTERVAL = 280;      // ms between notes when auto-playing the secret song
+const SECRET_MIN_INTERVAL = 200;     // ms — minimum gap between collision-driven secret notes
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -135,6 +142,10 @@ function makeState(creature, W, H, index) {
     _launchTimer: 0,
     _anchorX: 0,
     _anchorY: 0,
+    spin: 0,              // 0..1 progress of current hit-spin
+    spinDir: 1,           // +1 clockwise, -1 counterclockwise
+    spinRemaining: 0,     // ms left in the current spin
+    spinDuration: SPIN_DURATION_MIN, // ms total for the current spin
   };
 }
 
@@ -156,6 +167,31 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
 
   const statesRef = useRef([]);
   const [, setTick] = useState(0);
+  const collidingPairsRef = useRef(new Set());
+  const [slingHits, setSlingHits] = useState(0);
+  const [chord, setChord] = useState('major');
+  const chordRef = useRef(chord);
+  useEffect(() => { chordRef.current = chord; }, [chord]);
+  const secretCursorRef = useRef(0);
+  const secretLastPlayRef = useRef(0);
+  useEffect(() => {
+    if (chord === 'secret') {
+      secretCursorRef.current = 0;
+      secretLastPlayRef.current = 0;
+    }
+  }, [chord]);
+
+  const songTimersRef = useRef([]);
+  const playSecretSong = useCallback(() => {
+    songTimersRef.current.forEach(clearTimeout);
+    songTimersRef.current = SECRET_SONG.map((freq, i) =>
+      setTimeout(() => playChime(freq), i * SONG_NOTE_INTERVAL),
+    );
+  }, []);
+  useEffect(() => () => {
+    songTimersRef.current.forEach(clearTimeout);
+    songTimersRef.current = [];
+  }, []);
 
   const deployedRef = useRef(deployed);
   useEffect(() => { deployedRef.current = deployed; }, [deployed]);
@@ -259,9 +295,16 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
             s._launchTimer = 0;
           }
         }
+        if (s.spinRemaining > 0) {
+          s.spinRemaining = Math.max(0, s.spinRemaining - dt);
+          s.spin = s.spinRemaining === 0 ? 0 : 1 - s.spinRemaining / s.spinDuration;
+        }
       }
 
       // Creature-creature collision
+      const pairs = collidingPairsRef.current;
+      const seenKeys = new Set();
+      let slingHitDelta = 0;
       for (let i = 0; i < states.length; i++) {
         for (let j = i + 1; j < states.length; j++) {
           const a = states[i];
@@ -269,6 +312,55 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
           const dx = b.x - a.x;
           const dy = b.y - a.y;
           const d = Math.hypot(dx, dy);
+          const key = a.id < b.id ? `${a.id}-${b.id}` : `${b.id}-${a.id}`;
+          const colliding = d > 0 && d < COLLISION_DIST;
+          if (colliding) {
+            seenKeys.add(key);
+            if (!pairs.has(key)) {
+              pairs.add(key);
+              if (a._launching || b._launching) {
+                slingHitDelta += 1;
+                const startSpin = (x) => {
+                  const dur =
+                    SPIN_DURATION_MIN +
+                    Math.random() * (SPIN_DURATION_MAX - SPIN_DURATION_MIN);
+                  x.spinDuration = dur;
+                  x.spinRemaining = dur;
+                  x.spin = 0;
+                  x.spinDir = Math.random() < 0.5 ? -1 : 1;
+                };
+                const ring = (x) => {
+                  const slot = states.indexOf(x);
+                  if (slot < 0) return;
+                  if (chordRef.current === 'secret') {
+                    const nowMs =
+                      typeof performance !== 'undefined' && performance.now
+                        ? performance.now()
+                        : Date.now();
+                    if (nowMs - secretLastPlayRef.current < SECRET_MIN_INTERVAL) return;
+                    secretLastPlayRef.current = nowMs;
+                    const freq = SECRET_SONG[secretCursorRef.current % SECRET_SONG.length];
+                    secretCursorRef.current =
+                      (secretCursorRef.current + 1) % SECRET_SONG.length;
+                    playChime(freq);
+                    return;
+                  }
+                  const notes = chordRef.current === 'major' ? CHIME_NOTES_MAJOR : CHIME_NOTES_MINOR;
+                  playChime(notes[slot % notes.length]);
+                };
+                if (a._launching && b._launching) {
+                  startSpin(a); startSpin(b);
+                  ring(a); ring(b);
+                } else if (a._launching) {
+                  startSpin(b);
+                  ring(b);
+                } else {
+                  startSpin(a);
+                  ring(a);
+                }
+              }
+            }
+          }
           if (d === 0 || d >= COLLISION_DIST) continue;
           const overlap = COLLISION_DIST - d;
           const nx = dx / d;
@@ -299,6 +391,11 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
           }
         }
       }
+
+      for (const key of pairs) {
+        if (!seenKeys.has(key)) pairs.delete(key);
+      }
+      if (slingHitDelta > 0) setSlingHits((n) => n + slingHitDelta);
 
       setTick((t) => (t + 1) & 0xffff);
       raf = requestAnimationFrame(step);
@@ -471,11 +568,16 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                   {
                     key: 'moon',
                     Visual: Moon,
-                    size: 150,
-                    radius: W * 2.5,
-                    rpm: 2.5,
-                    phase: 0,
-                    selfSpinRpm: 5,
+                    visualProps: {
+                      color: '#7AA8E0',
+                      craterColor: 'rgba(40,80,140,0.35)',
+                      glowColor: '#7AA8E0',
+                    },
+                    size: 250,
+                    radius: W * 1.95,
+                    rpm: 0.05,
+                    phase: Math.PI / 8 * -2,
+                    selfSpinRpm: 0.1,
                   },
                   {
                     key: 'bluemoon',
@@ -485,11 +587,21 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                       craterColor: 'rgba(40,80,140,0.35)',
                       glowColor: '#7AA8E0',
                     },
-                    size: 75,
-                    radius: W * 2,
-                    rpm: 3,
-                    phase: Math.PI,
-                    selfSpinRpm: 15,
+                    size: 150,
+                    radius: W * 1.55,
+                    rpm: 0.05,
+                    phase: Math.PI / 8 * -1,
+                    selfSpinRpm: 0.1,
+                  },
+                  {
+                    key: 'cratermoon',
+                    Visual: MoonCanvas,
+                    visualProps: { backgroundColor: 'transparent' },
+                    size: 10,
+                    radius: W * 1.85,
+                    rpm: 10,
+                    phase: Math.PI / 8 * -1,
+                    selfSpinRpm: 0,
                   },
                 ];
                 return ORBITS.map(({ key, Visual, visualProps, size: vSize, radius, rpm, phase, selfSpinRpm }) => (
@@ -564,7 +676,17 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
           if (key === 'monsters' && onOpenManager) onOpenManager();
         }}
       />
+      <View style={styles.hitCounterWrap} pointerEvents="none">
+        <View style={styles.hitCounterPill}>
+          <Text style={styles.hitCounterText}>Hits {slingHits}</Text>
+        </View>
+      </View>
       <ModeToggle mode={mode} onChange={onModeChange} />
+      <ChordToggle
+        chord={chord}
+        onChange={setChord}
+        onReselect={(m) => { if (m === 'secret') playSecretSong(); }}
+      />
     </View>
   );
 }
@@ -593,6 +715,7 @@ function CreaturePan({ id, monster, s, size, makeGesture, showShadow = true, inS
           walkPhase={s.walkPhase}
           dragging={s.dragging}
           inSpace={inSpace}
+          rotation={s.spinRemaining > 0 ? s.spin * 360 * s.spinDir : 0}
         />
       </View>
     </GestureDetector>
@@ -602,4 +725,24 @@ function CreaturePan({ id, monster, s, size, makeGesture, showShadow = true, inS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG.DEEP, overflow: 'hidden' },
   creature: { position: 'absolute' },
+  hitCounterWrap: {
+    position: 'absolute',
+    top: 14,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 45,
+  },
+  hitCounterPill: {
+    backgroundColor: 'rgba(18,12,40,0.72)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  hitCounterText: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
 });

@@ -161,6 +161,7 @@ export default function App() {
             onHatch={hatch}
             onRecall={recall}
             onUpdateDiary={updateDiary}
+            showTopOverlay={navKey === 'calendar'}
           />
           <CreatureManager
             open={managerOpen}
