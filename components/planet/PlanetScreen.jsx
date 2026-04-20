@@ -14,6 +14,7 @@ import OrbitingBody from './OrbitingBody';
 import PlanetMenu from './PlanetMenu';
 import ModeToggle from './ModeToggle';
 import ChordToggle from './ChordToggle';
+import PeerPortal from './PeerPortal';
 import CreatureAvatar from '../ui/CreatureAvatar';
 import MoonCanvas from '../../assets/MoonCanvas';
 import { CHIME_NOTES_MAJOR, CHIME_NOTES_MINOR, SECRET_SONG, playChime } from '../../assets/chimeSynth';
@@ -157,10 +158,10 @@ function pickWanderTarget(W, H, sc) {
   return { x: tx, y: ty };
 }
 
-export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, mode = 'slingshot', onModeChange }) {
+export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, onMenuSelect, mode = 'slingshot', onModeChange }) {
   const modeRef = useRef(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
-  const deployed = useMemo(() => monsters.filter((m) => m.is_displayed), [monsters]);
+  const deployed = useMemo(() => monsters.filter((m) => m.state === 'hatched' && m.is_displayed), [monsters]);
 
   const [size, setSize] = useState({ W: 0, H: 0 });
   const { W, H } = size;
@@ -673,7 +674,8 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
       </GestureDetector>
       <PlanetMenu
         onSelect={(key) => {
-          if (key === 'monsters' && onOpenManager) onOpenManager();
+          if (onMenuSelect) onMenuSelect(key);
+          else if (key === 'monsters' && onOpenManager) onOpenManager();
         }}
       />
       <View style={styles.hitCounterWrap} pointerEvents="none">
@@ -687,6 +689,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         onChange={setChord}
         onReselect={(m) => { if (m === 'secret') playSecretSong(); }}
       />
+      <PeerPortal onPress={() => onMenuSelect && onMenuSelect('reader')} />
     </View>
   );
 }

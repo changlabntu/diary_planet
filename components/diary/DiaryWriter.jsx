@@ -11,8 +11,41 @@ import {
 } from 'react-native';
 
 import Modal from '../ui/Modal';
-import CategoryPill from '../ui/CategoryPill';
 import { ATTRIBUTES } from '../../theme';
+import Creature1 from '../../assets/creature1.svg';
+
+const WALK_FRAMES = 4;
+const WALK_FRAME_MS = 160;
+
+function WalkingCreature({ size = 72, flip = false }) {
+  const [frame, setFrame] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => {
+      setFrame((f) => (f + 1) % WALK_FRAMES);
+    }, WALK_FRAME_MS);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        overflow: 'hidden',
+        transform: flip ? [{ scaleX: -1 }] : undefined,
+      }}
+    >
+      <View
+        style={{
+          width: size * WALK_FRAMES,
+          height: size,
+          transform: [{ translateX: -frame * size }],
+        }}
+      >
+        <Creature1 width={size * WALK_FRAMES} height={size} />
+      </View>
+    </View>
+  );
+}
 
 const EMOTION_POOL = [
   'proud', 'relieved', 'warm', 'grateful', 'peaceful', 'present',
@@ -24,14 +57,12 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
   const [content, setContent] = useState('');
   const [mood, setMood] = useState(3);
   const [emotions, setEmotions] = useState([]);
-  const [attribute, setAttribute] = useState(null);
 
   useEffect(() => {
     if (open) {
       setContent('');
       setMood(3);
       setEmotions([]);
-      setAttribute(null);
     }
   }, [open]);
 
@@ -41,10 +72,9 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
     );
   };
 
-  const catForUi = attribute || 'A';
-  const tier = ATTRIBUTES[catForUi];
+  const tier = ATTRIBUTES.U;
 
-  const canSubmit = attribute && content.trim().length > 0;
+  const canSubmit = content.trim().length > 0;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -52,7 +82,6 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
       content: content.trim(),
       mood_score: mood,
       emotions,
-      attribute,
     });
   };
 
@@ -68,12 +97,20 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={20}
       >
-        <Text style={styles.title}>New diary</Text>
+        {open && (
+          <View style={styles.walkerWrap}>
+            <WalkingCreature size={144} flip />
+            <View style={styles.bubble}>
+              <View style={styles.bubbleTail} />
+              <Text style={styles.bubbleText}>What's on your mind?</Text>
+            </View>
+          </View>
+        )}
 
         <TextInput
           value={content}
           onChangeText={setContent}
-          placeholder="What's on your mind?"
+          placeholder="Today, I..."
           placeholderTextColor="rgba(255,255,255,0.4)"
           multiline
           style={styles.textInput}
@@ -129,18 +166,6 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
           })}
         </ScrollView>
 
-        <Text style={styles.sectionLabel}>Category *</Text>
-        <View style={styles.catRow}>
-          {['A', 'B', 'C', 'D'].map((k) => (
-            <CategoryPill
-              key={k}
-              cat={k}
-              active={attribute === k}
-              onPress={() => setAttribute(k)}
-            />
-          ))}
-        </View>
-
         <Pressable
           disabled={!canSubmit}
           onPress={handleSubmit}
@@ -153,7 +178,7 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
           ]}
         >
           <Text style={styles.submitText}>
-            {canSubmit ? 'Save entry' : 'Pick a category to save'}
+            {canSubmit ? 'Create my diary' : 'Write something to save'}
           </Text>
         </Pressable>
       </KeyboardAvoidingView>
@@ -162,15 +187,52 @@ export default function DiaryWriter({ open, onClose, onSubmit }) {
 }
 
 const styles = StyleSheet.create({
+  walkerWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: -16,
+    marginBottom: 8,
+  },
+  bubble: {
+    marginLeft: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    flexShrink: 1,
+  },
+  bubbleTail: {
+    position: 'absolute',
+    left: -10,
+    top: '50%',
+    marginTop: -5,
+    width: 0,
+    height: 0,
+    borderTopWidth: 5,
+    borderBottomWidth: 5,
+    borderRightWidth: 8,
+    borderTopColor: 'transparent',
+    borderBottomColor: 'transparent',
+    borderRightColor: 'rgba(255,255,255,0.14)',
+  },
+  bubbleText: {
+    color: '#fff',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
   title: { color: '#fff', fontSize: 18, fontWeight: '600', marginBottom: 12 },
   textInput: {
-    minHeight: 120,
+    minHeight: 240,
     padding: 12,
     borderRadius: 12,
     backgroundColor: 'rgba(255,255,255,0.05)',
     color: '#fff',
     fontSize: 14,
     textAlignVertical: 'top',
+    borderWidth: 0,
+    outlineStyle: 'none',
+    outlineWidth: 0,
   },
   sectionLabel: {
     color: 'rgba(255,255,255,0.75)', fontSize: 12, fontWeight: '600',
@@ -188,7 +250,6 @@ const styles = StyleSheet.create({
     borderRadius: 999, borderWidth: 1, marginRight: 8,
   },
   emotionText: { fontSize: 12 },
-  catRow: { flexDirection: 'row', flexWrap: 'wrap' },
   submitBtn: {
     marginTop: 18, paddingVertical: 14, borderRadius: 14, alignItems: 'center',
   },

@@ -5,16 +5,24 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { BG, MAX_DEPLOYED, fmtDate } from './theme';
-import { generateCreature } from './generateCreature';
+import {
+  createEgg,
+  hatchMonster,
+  sendMonster,
+  applyReply,
+} from './generateCreature';
 import diariesSeed from './data/diaries.json';
 import monstersSeed from './data/monsters.json';
+import { listReadable, drawRandom } from './data/pool';
 
 import BottomNav from './components/nav/BottomNav';
 import PlanetScreen from './components/planet/PlanetScreen';
 import DiaryCalendar from './components/diary/DiaryCalendar';
 import DiaryWriter from './components/diary/DiaryWriter';
 import DiarySheet from './components/diary/DiarySheet';
+import DiaryConversationSheet from './components/diary/DiaryConversationSheet';
 import CreatureManager from './components/creatures/CreatureManager';
+import JournalReaderSheet from './components/journal/JournalReaderSheet';
 
 export default function App() {
   const [navKey, setNavKey] = useState('planet');
@@ -23,8 +31,12 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [writerOpen, setWriterOpen] = useState(false);
   const [selectedDiaryId, setSelectedDiaryId] = useState(null);
+  const [diarySheetSource, setDiarySheetSource] = useState('planet');
+  const [conversationDiaryId, setConversationDiaryId] = useState(null);
   const [managerOpen, setManagerOpen] = useState(false);
   const [planetMode, setPlanetMode] = useState('slingshot');
+  const [role, setRole] = useState('author');
+  const [readerJournal, setReaderJournal] = useState(null);
 
   const showToast = useCallback((msg) => {
     setToast(msg);
@@ -40,7 +52,6 @@ export default function App() {
       return {
         ...m,
         diary: d,
-        attribute: d?.attribute ?? null,
         dateLabel: d ? fmtDate(d.created_at) : '',
         seed: m.id * 9301 + (m.diary_id || 0) * 49297,
       };
@@ -48,13 +59,19 @@ export default function App() {
 
     const calendarDiaries = diaries.map((d) => {
       const m = monsterByDiaryId.get(d.id);
-      return { ...d, monster: m || null, hatched: !!m };
+      return {
+        ...d,
+        monster: m || null,
+        hatched: m?.state === 'hatched',
+      };
     });
 
     return { enrichedMonsters, calendarDiaries };
   }, [monsters, diaries]);
 
   const deploy = useCallback((id) => {
+    const target = monsters.find((m) => m.id === id);
+    if (!target || target.state !== 'hatched') return;
     const deployedCount = monsters.filter((m) => m.is_displayed).length;
     if (deployedCount >= MAX_DEPLOYED) {
       showToast('Planet is full — recall one first');
@@ -71,39 +88,103 @@ export default function App() {
     setMonsters((prev) => prev.map((m) => (m.id === id ? { ...m, starred: !m.starred } : m)));
   }, []);
 
-  const hatch = useCallback((diaryId, gem) => {
+  const sendJournal = useCallback((diaryId) => {
+    setMonsters((prev) =>
+      prev.map((m) => (m.diary_id === diaryId && m.state === 'egg' ? sendMonster(m) : m)),
+    );
+  }, []);
+
+  const replyToJournal = useCallback((journal, reply) => {
+    if (!journal) return;
+    setMonsters((prev) =>
+      prev.map((m) => (m.diary_id === journal.id && m.state === 'sent' ? applyReply(m, reply) : m)),
+    );
+  }, []);
+
+  const hatch = useCallback((diaryId) => {
     const diary = diaries.find((d) => d.id === diaryId);
     if (!diary) return;
     setMonsters((prev) => {
+      const target = prev.find((m) => m.diary_id === diaryId && m.state === 'replied');
+      if (!target) return prev;
       const deployedCount = prev.filter((m) => m.is_displayed).length;
-      const nextId = prev.reduce((max, m) => Math.max(max, m.id), 0) + 1;
       const canDeploy = deployedCount < MAX_DEPLOYED;
-      const creature = generateCreature(diary, gem, { id: nextId });
+      const hatched = hatchMonster(target, diary);
       if (!canDeploy) showToast('Planet is full — hatched to idle');
-      return [...prev, { ...creature, is_displayed: canDeploy }];
+      return prev.map((m) =>
+        m.id === target.id ? { ...hatched, is_displayed: canDeploy } : m,
+      );
     });
   }, [diaries, showToast]);
 
   const writeDiary = useCallback((entry) => {
-    setDiaries((prev) => {
-      const nextId = prev.reduce((max, d) => Math.max(max, d.id), 0) + 1;
-      return [...prev, { id: nextId, created_at: new Date().toISOString(), ...entry }];
-    });
-  }, []);
+    const nextDiaryId = diaries.reduce((max, d) => Math.max(max, d.id), 0) + 1;
+    const newDiary = { id: nextDiaryId, created_at: new Date().toISOString(), ...entry };
+    const nextMonsterId = monsters.reduce((max, m) => Math.max(max, m.id), 0) + 1;
+    setDiaries((prev) => [...prev, newDiary]);
+    setMonsters((prev) => [...prev, createEgg(newDiary, { id: nextMonsterId })]);
+    return nextDiaryId;
+  }, [diaries, monsters]);
 
   const updateDiary = useCallback((diaryId, updates) => {
     setDiaries((prev) => prev.map((d) => (d.id === diaryId ? { ...d, ...updates } : d)));
   }, []);
+
+  const drawReaderJournal = useCallback(() => {
+    const list = listReadable(diaries, monsters);
+    if (list.length === 0) {
+      showToast('Nothing to read yet — send one from your planet first');
+      return;
+    }
+    const picked = drawRandom(list, readerJournal?.id);
+    if (!picked) {
+      showToast('No other journals to read');
+      return;
+    }
+    setReaderJournal(picked);
+  }, [diaries, monsters, readerJournal, showToast]);
+
+  const openPeerMode = useCallback(() => {
+    const list = listReadable(diaries, monsters);
+    if (list.length === 0) {
+      showToast('Nothing to read yet — send one from your planet first');
+      return;
+    }
+    const picked = drawRandom(list, null);
+    if (!picked) return;
+    setReaderJournal(picked);
+    setRole('reader');
+  }, [diaries, monsters, showToast]);
+
+  const exitPeerMode = useCallback(() => {
+    setReaderJournal(null);
+    setRole('author');
+  }, []);
+
+  const submitReaderReply = useCallback((journal, reply) => {
+    replyToJournal(journal, reply);
+  }, [replyToJournal]);
 
   const selectedDiary = useMemo(
     () => calendarDiaries.find((d) => d.id === selectedDiaryId) || null,
     [calendarDiaries, selectedDiaryId],
   );
 
+  const conversationDiary = useMemo(
+    () => calendarDiaries.find((d) => d.id === conversationDiaryId) || null,
+    [calendarDiaries, conversationDiaryId],
+  );
+
   const openDiaryFromMonster = useCallback((monster) => {
     if (!monster) return;
+    setDiarySheetSource('planet');
     setSelectedDiaryId(monster.diary_id);
   }, []);
+
+  const handlePlanetMenuSelect = useCallback((key) => {
+    if (key === 'monsters') setManagerOpen(true);
+    else if (key === 'reader') openPeerMode();
+  }, [openPeerMode]);
 
   const renderScreen = () => {
     switch (navKey) {
@@ -113,6 +194,7 @@ export default function App() {
             monsters={enrichedMonsters}
             onSelectCreature={openDiaryFromMonster}
             onOpenManager={() => setManagerOpen(true)}
+            onMenuSelect={handlePlanetMenuSelect}
             mode={planetMode}
             onModeChange={setPlanetMode}
           />
@@ -121,7 +203,10 @@ export default function App() {
         return (
           <DiaryCalendar
             diaries={calendarDiaries}
-            onSelectDiary={(d) => setSelectedDiaryId(d.id)}
+            onSelectDiary={(d) => {
+              setDiarySheetSource('calendar');
+              setSelectedDiaryId(d.id);
+            }}
           />
         );
       default:
@@ -139,18 +224,21 @@ export default function App() {
         <SafeAreaView style={styles.root} edges={['top']}>
           <View style={styles.screen}>
             {renderScreen()}
-            <BottomNav
-              navKey={navKey}
-              onChange={setNavKey}
-              onWritePress={() => setWriterOpen(true)}
-            />
+            {role === 'author' && (
+              <BottomNav
+                navKey={navKey}
+                onChange={setNavKey}
+                onWritePress={() => setWriterOpen(true)}
+              />
+            )}
           </View>
           <DiaryWriter
             open={writerOpen}
             onClose={() => setWriterOpen(false)}
             onSubmit={(entry) => {
-              writeDiary(entry);
+              const newId = writeDiary(entry);
               setWriterOpen(false);
+              setConversationDiaryId(newId);
             }}
           />
           <DiarySheet
@@ -158,9 +246,30 @@ export default function App() {
             onClose={() => setSelectedDiaryId(null)}
             diary={selectedDiary}
             monster={selectedDiary?.monster || null}
-            onHatch={hatch}
+            onSendOut={(diaryId) => {
+              sendJournal(diaryId);
+              setSelectedDiaryId(null);
+            }}
+            onHatch={(diaryId) => {
+              hatch(diaryId);
+              setSelectedDiaryId(null);
+            }}
             onRecall={recall}
             onUpdateDiary={updateDiary}
+            source={diarySheetSource}
+          />
+          <DiaryConversationSheet
+            open={!!conversationDiary}
+            onClose={() => setConversationDiaryId(null)}
+            diary={conversationDiary}
+            monster={conversationDiary?.monster || null}
+            onSave={() => setConversationDiaryId(null)}
+            onSendOut={() => {
+              if (!conversationDiary) return;
+              sendJournal(conversationDiary.id);
+              setConversationDiaryId(null);
+              showToast('Sent out — waiting for a reply');
+            }}
           />
           <CreatureManager
             open={managerOpen}
@@ -169,6 +278,18 @@ export default function App() {
             onDeploy={deploy}
             onRecall={recall}
             onStar={star}
+          />
+          <JournalReaderSheet
+            open={role === 'reader' && !!readerJournal}
+            journal={readerJournal}
+            onClose={exitPeerMode}
+            onSubmit={(reply) => {
+              if (!readerJournal) return;
+              submitReaderReply(readerJournal, reply);
+              exitPeerMode();
+              showToast('Sent your reply back');
+            }}
+            onReadAnother={() => drawReaderJournal()}
           />
           {toast && (
             <View style={styles.toast} pointerEvents="none">

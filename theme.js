@@ -1,10 +1,17 @@
 export const ATTRIBUTES = {
-  A: { label: 'Self',     hi: '#CECBF6', mid: '#7F77DD', lo: '#3C3489' },
-  B: { label: 'Relation', hi: '#F4C0D1', mid: '#D4537E', lo: '#72243E' },
-  C: { label: 'Achieve',  hi: '#9FE1CB', mid: '#1D9E75', lo: '#085041' },
-  D: { label: 'Meaning',  hi: '#FAC775', mid: '#BA7517', lo: '#633806' },
-  _: { label: '',         hi: '#D3D1C7', mid: '#888780', lo: '#444441' },
+  A: { label: 'Self',      hi: '#CECBF6', mid: '#7F77DD', lo: '#3C3489' },
+  B: { label: 'Relation',  hi: '#F4C0D1', mid: '#D4537E', lo: '#72243E' },
+  C: { label: 'Achieve',   hi: '#9FE1CB', mid: '#1D9E75', lo: '#085041' },
+  D: { label: 'Meaning',   hi: '#FAC775', mid: '#BA7517', lo: '#633806' },
+  U: { label: 'Unhatched', hi: '#FFFFFF', mid: '#E5E5E5', lo: '#8A8A8A' },
+  _: { label: '',          hi: '#D3D1C7', mid: '#888780', lo: '#444441' },
 };
+
+export const EGG_COLOR = '#FFFFFF';
+
+export const EGG_NAME = 'Egg';
+
+export const DECIDE_BLUE = '#5EDCFF';
 
 export const GEMS = {
   A: ['Humility', 'Prudence', 'Passion', 'Openness', 'Growth', 'Rationality'],

@@ -4,7 +4,6 @@
     "content": "Rewrote the messy module from scratch. Felt scary to throw away so much code but the result is clean and I understand it fully now. I kept catching myself wanting to preserve old pieces out of sunk-cost guilt, and each time I deleted them anyway the file got easier to read. There's a quiet pride in writing something you could explain to a stranger on a whiteboard, end to end, without hedging. Tomorrow I'll wire it into the tests and see if reality agrees with the diagram in my head.",
     "mood_score": 4,
     "emotions": ["proud", "relieved"],
-    "attribute": "C",
     "created_at": "2026-04-02T21:14:00Z"
   },
   {
@@ -12,7 +11,6 @@
     "content": "Long call with mom. She's been lonely. I listened more than I talked and it felt right. She told me about the neighbors, the garden, the little things that used to bore me when I was a kid and now feel like the real shape of her life. I noticed how often she apologized for rambling, and I kept saying it was okay, please keep going. I don't think she believed me at first, but after a while she just talked, and I just listened, and that was the whole evening.",
     "mood_score": 4,
     "emotions": ["warm", "grateful"],
-    "attribute": "B",
     "created_at": "2026-04-05T19:40:00Z"
   },
   {
@@ -20,7 +18,6 @@
     "content": "Sat by the window for an hour doing nothing. The light was gold and everything felt quiet inside. I'd meant to answer emails but the warmth on the floorboards made that feel unserious. A magpie landed on the railing, stayed a second, and left. Somewhere below, a kid was learning to ride a bike and crashing cheerfully into the hedge. I didn't think about anything in particular. It's strange how rare that is now, and how much it fixes when it happens.",
     "mood_score": 5,
     "emotions": ["peaceful", "present"],
-    "attribute": "D",
     "created_at": "2026-04-07T17:05:00Z"
   },
   {
@@ -28,7 +25,6 @@
     "content": "Tried making ramen from scratch. The broth was mediocre but the noodles were a small miracle. Still learning. I underestimated the broth — eight hours of simmering and I still got something closer to brown water than the glossy, milky thing I was chasing. But rolling and cutting the noodles by hand was the most meditative thing I've done in weeks. Flour everywhere, forearms sore, and then this chewy, uneven result that was unmistakably mine. Next weekend, chashu. One variable at a time.",
     "mood_score": 3,
     "emotions": ["curious"],
-    "attribute": "A",
     "created_at": "2026-04-09T20:10:00Z"
   },
   {
@@ -36,7 +32,6 @@
     "content": "Nervous about the interview tomorrow. Kept reminding myself that I've prepared and the worst case is just information. I did the thing where I rehearsed opening sentences in the shower and still couldn't decide whether to sound warm or sharp. Laid out the shirt. Charged the laptop. Wrote down three questions I actually want to ask, not ones that sound smart. I keep forgetting that the people on the other side are also humans hoping the call goes well. If it doesn't, I'll have learned how their team thinks, and that's worth something.",
     "mood_score": 2,
     "emotions": ["anxious", "hopeful"],
-    "attribute": "A",
     "created_at": "2026-04-11T22:30:00Z"
   },
   {
@@ -44,7 +39,6 @@
     "content": "Reconnected with an old friend. We talked for three hours like no time had passed. It was strange and lovely to hear their voice land in the same rhythms I remembered, as if the intervening years had only been a long pause in one conversation. We caught up on the obvious things — jobs, cities, who'd had kids — and then slid easily into the older, weirder register we used to share. I forget how much of me only comes out around certain people.",
     "mood_score": 5,
     "emotions": ["joyful", "nostalgic"],
-    "attribute": "B",
     "created_at": "2026-04-13T15:20:00Z"
   },
   {
@@ -52,7 +46,6 @@
     "content": "Shipped the redesign. Got a few kind notes. I'm trying to let myself feel this instead of immediately looking for the next thing. My instinct is to open the backlog and start triaging, because sitting with good news feels like wasting momentum. But I noticed that every previous launch blurred straight into the next one and I can't really remember any of them. So tonight I closed the laptop, made a proper dinner, and read the messages again slowly. It counted. It's allowed to count.",
     "mood_score": 4,
     "emotions": ["accomplished"],
-    "attribute": "C",
     "created_at": "2026-04-15T23:55:00Z"
   },
   {
@@ -60,7 +53,34 @@
     "content": "Walked past the old library and remembered how much I used to love getting lost in there. Going back next weekend. The brick was the same, the big arched windows were the same, and for a second I could feel the specific weight of being fifteen with a stack of books I'd never finish. I used to pick shelves at random and read whatever was at eye level. I want to try that again, without a purpose, without a list. Just walk in and let something find me.",
     "mood_score": 3,
     "emotions": ["reflective"],
-    "attribute": "D",
     "created_at": "2026-04-17T18:45:00Z"
+  },
+  {
+    "id": 9,
+    "content": "Had coffee with my brother for the first time in months. Realized we've both been using 'busy' as a way to say 'I don't know how to do this anymore.' We sat there for an hour just being honest about not knowing, and I think that was the closest we've been in years. He kept the mug I'd bought him a decade ago on the windowsill behind him — I don't think he noticed I noticed.",
+    "mood_score": 4,
+    "emotions": ["tender", "honest"],
+    "created_at": "2026-04-18T19:20:00Z"
+  },
+  {
+    "id": 10,
+    "content": "Kept meaning to call the dentist all week and somehow the week is over. Small things keep slipping. I'm not sure if it's tiredness or avoidance or just the usual mid-month fog. Writing it down because I'm tired of pretending I can just hold it all in my head. Even now I can feel the urge to rewrite this into something neater than it is.",
+    "mood_score": 2,
+    "emotions": ["frustrated", "tired"],
+    "created_at": "2026-04-19T09:40:00Z"
+  },
+  {
+    "id": 11,
+    "content": "Watched the sun come up on purpose. Haven't done that in a year. The light spread so slowly that for a minute I thought I was imagining the change, and then suddenly the whole kitchen was gold and I was standing there with a cold cup of tea. I want to do this more often. Not as a productivity thing. Just to remember that the day starts without asking me anything.",
+    "mood_score": 5,
+    "emotions": ["peaceful", "renewed"],
+    "created_at": "2026-04-20T05:55:00Z"
+  },
+  {
+    "id": 12,
+    "content": "Tried oil painting for the first time. Everything I made looked like mud until I stopped trying to mix secondary colors on the canvas and started planning them on the palette. There's probably a life lesson in there but I was too covered in turpentine to write it down. The one small square of sky I got right is going on the fridge, ugly edges and all.",
+    "mood_score": 4,
+    "emotions": ["playful", "curious"],
+    "created_at": "2026-04-20T11:05:00Z"
   }
 ]

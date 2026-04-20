@@ -1,4 +1,4 @@
-import { ATTRIBUTES, seededRand } from './theme';
+import { ATTRIBUTES, EGG_COLOR, seededRand } from './theme';
 
 const NAMES = [
   'Lumie', 'Pippa', 'Zorb', 'Nix', 'Mox', 'Fen', 'Biscuit', 'Pogo',
@@ -13,25 +13,55 @@ function pickColors(cat, mood, rand) {
   return { color: body, torsoColor: torso };
 }
 
-export function generateCreature(diary, gem, { id } = {}) {
-  const rand = seededRand(`diary-${diary.id}-gem-${gem.value}`);
+export function createEgg(diary, { id } = {}) {
+  return {
+    id,
+    diary_id: diary.id,
+    state: 'egg',
+    name: null,
+    attribute: 'U',
+    color: EGG_COLOR,
+    torsoColor: EGG_COLOR,
+    gem: null,
+    rarity: null,
+    reply_comment: null,
+    replied_at: null,
+    pat_count: 0,
+    is_displayed: false,
+    starred: false,
+  };
+}
+
+export function sendMonster(monster) {
+  return { ...monster, state: 'sent' };
+}
+
+export function applyReply(monster, { cat, value, comment }) {
+  return {
+    ...monster,
+    state: 'replied',
+    attribute: cat,
+    gem: value,
+    reply_comment: comment ?? null,
+    replied_at: new Date().toISOString(),
+  };
+}
+
+export function hatchMonster(monster, diary) {
+  const rand = seededRand(`diary-${diary.id}-gem-${monster.gem}`);
   const name = NAMES[Math.floor(rand() * NAMES.length)];
-  const { color, torsoColor } = pickColors(diary.attribute, diary.mood_score, rand);
+  const { color, torsoColor } = pickColors(monster.attribute, diary.mood_score, rand);
   const emotionCount = diary.emotions?.length ?? 0;
   const rarity =
     diary.mood_score === 5 && emotionCount >= 3 && rand() > 0.7
       ? 'rare'
       : 'common';
   return {
-    id,
-    diary_id: diary.id,
+    ...monster,
+    state: 'hatched',
     name,
     color,
     torsoColor,
-    gem: gem.value,
     rarity,
-    pat_count: 0,
-    is_displayed: false,
-    starred: false,
   };
 }

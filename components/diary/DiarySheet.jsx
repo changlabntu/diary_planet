@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
@@ -8,7 +8,12 @@ import EggIcon from '../ui/EggIcon';
 import Gem from '../ui/Gem';
 import MoodDots from '../ui/MoodDots';
 import EmotionTag from '../ui/EmotionTag';
-import CategoryPill from '../ui/CategoryPill';
+import {
+  ATTRIBUTES,
+  EGG_NAME,
+  fmtDate,
+  badge,
+} from '../../theme';
 
 function SpaceshipIcon({ size = 22, color = '#fff' }) {
   return (
@@ -25,200 +30,164 @@ function SpaceshipIcon({ size = 22, color = '#fff' }) {
     </Svg>
   );
 }
-import {
-  ATTRIBUTES,
-  GEMS,
-  fmtDate,
-  badge,
-  pillActive,
-} from '../../theme';
 
 export default function DiarySheet({
   open,
   onClose,
   diary,
   monster,
+  onSendOut,
   onHatch,
   onRecall,
+  source = 'planet',
 }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [selectedGem, setSelectedGem] = useState(null);
-  const [pickerCat, setPickerCat] = useState(diary?.attribute || 'A');
-  const [gridW, setGridW] = useState(0);
-  const [rightH, setRightH] = useState(0);
-
-  useEffect(() => {
-    if (open) {
-      setPickerOpen(false);
-      setSelectedGem(null);
-      setPickerCat(diary?.attribute || 'A');
-    }
-  }, [open, diary?.id]);
+  const [rightH, setRightH] = React.useState(0);
 
   if (!diary) return null;
 
-  const attrCat = diary.attribute;
+  const state = monster?.state || 'egg';
+  const hatched = state === 'hatched';
+  // Until hatch, the author must not see the incoming attribute — eggs look neutral.
+  const attrCat = hatched ? monster.attribute : 'U';
   const attrStyle = badge(attrCat);
   const attrLabel = ATTRIBUTES[attrCat]?.label || '';
-  const hatched = !!monster;
-
-  const gemList = GEMS[pickerCat] || [];
+  const diaryCat = hatched ? monster.attribute : 'U';
 
   return (
     <>
-      {open && (
+      {open && source === 'planet' && (
         <View style={styles.topTextOverlay} pointerEvents="none">
           <Text style={styles.topDate}>{fmtDate(diary.created_at)}</Text>
           <Text style={styles.topText}>{diary.content}</Text>
         </View>
       )}
-    <Modal
-      open={open}
-      onClose={onClose}
-      variant="sheet"
-      backdropStyle={{ backgroundColor: 'transparent' }}
-      sheetStyle={{ marginBottom: 56, paddingBottom: 6 }}
-    >
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          {hatched ? (
-            <CreatureAvatar
-              color={monster.color}
-              torsoColor={monster.torsoColor}
-              size={64}
-              showShadow
-            />
-          ) : (
-            <EggIcon size={48} color={ATTRIBUTES[attrCat]?.hi || '#9DB9E8'} />
-          )}
-          <View style={styles.headerText}>
-            <Text style={styles.name}>{hatched ? monster.name : 'Unhatched egg'}</Text>
-            <Text style={styles.date}>{fmtDate(diary.created_at)}</Text>
-            <View style={styles.pillRow}>
-              <View style={[styles.pill, { backgroundColor: attrStyle.bg }]}>
-                <Text style={[styles.pillText, { color: attrStyle.color }]}>
-                  {attrLabel}
-                </Text>
+      <Modal
+        open={open}
+        onClose={onClose}
+        variant="sheet"
+        backdropStyle={{ backgroundColor: 'transparent' }}
+        sheetStyle={{ marginBottom: 56, paddingBottom: 6 }}
+      >
+        <View style={styles.header}>
+          <View style={styles.headerRow}>
+            {hatched ? (
+              <CreatureAvatar
+                color={monster.color}
+                torsoColor={monster.torsoColor}
+                size={64}
+                showShadow
+              />
+            ) : (
+              <EggIcon
+                size={48}
+                color={ATTRIBUTES.U.hi}
+                pending={state === 'sent'}
+                ready={state === 'replied'}
+              />
+            )}
+            <View style={styles.headerText}>
+              <Text style={styles.name}>{hatched ? monster.name : EGG_NAME}</Text>
+              <Text style={styles.date}>{fmtDate(diary.created_at)}</Text>
+              <View style={styles.pillRow}>
+                <View style={[styles.pill, { backgroundColor: attrStyle.bg }]}>
+                  <Text style={[styles.pillText, { color: attrStyle.color }]}>
+                    {attrLabel}
+                  </Text>
+                </View>
+                {hatched && (
+                  <View style={styles.gemPill}>
+                    <Gem cat={attrCat} size={14} angle={0.6} />
+                    <Text style={styles.gemText}>{monster.gem}</Text>
+                  </View>
+                )}
               </View>
-              {hatched && (
-                <View style={styles.gemPill}>
-                  <Gem cat={attrCat} size={14} angle={0.6} />
-                  <Text style={styles.gemText}>{monster.gem}</Text>
+            </View>
+            {hatched && rightH > 0 && (
+              <Pressable
+                onPress={
+                  monster.is_displayed
+                    ? () => {
+                        onRecall && onRecall(monster.id);
+                        onClose && onClose();
+                      }
+                    : undefined
+                }
+                disabled={!monster.is_displayed}
+                hitSlop={6}
+                style={({ pressed }) => [
+                  styles.recallIconBtn,
+                  { width: rightH, height: rightH },
+                  !monster.is_displayed && styles.recallIconBtnIdle,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <SpaceshipIcon size={Math.max(16, rightH - 10)} color="#fff" />
+              </Pressable>
+            )}
+            <View
+              style={styles.headerRight}
+              onLayout={(e) => setRightH(e.nativeEvent.layout.height)}
+            >
+              {diary.emotions?.length > 0 && (
+                <View style={styles.emotionRow}>
+                  {diary.emotions.map((e) => (
+                    <EmotionTag key={e} label={e} cat={diaryCat} />
+                  ))}
                 </View>
               )}
-            </View>
-          </View>
-          {hatched && rightH > 0 && (
-            <Pressable
-              onPress={
-                monster.is_displayed
-                  ? () => {
-                      onRecall && onRecall(monster.id);
-                      onClose && onClose();
-                    }
-                  : undefined
-              }
-              disabled={!monster.is_displayed}
-              hitSlop={6}
-              style={({ pressed }) => [
-                styles.recallIconBtn,
-                { width: rightH, height: rightH },
-                !monster.is_displayed && styles.recallIconBtnIdle,
-                { opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <SpaceshipIcon size={Math.max(16, rightH - 10)} color="#fff" />
-            </Pressable>
-          )}
-          <View
-            style={styles.headerRight}
-            onLayout={(e) => setRightH(e.nativeEvent.layout.height)}
-          >
-            {diary.emotions?.length > 0 && (
-              <View style={styles.emotionRow}>
-                {diary.emotions.map((e) => (
-                  <EmotionTag key={e} label={e} cat={attrCat} />
-                ))}
+              <View style={styles.moodRow}>
+                <Text style={styles.label}>Mood</Text>
+                <MoodDots mood={diary.mood_score} cat={diaryCat} />
               </View>
-            )}
-            <View style={styles.moodRow}>
-              <Text style={styles.label}>Mood</Text>
-              <MoodDots mood={diary.mood_score} cat={attrCat} />
             </View>
           </View>
         </View>
-      </View>
 
-      {hatched ? null : pickerOpen ? (
-        <View>
-          <Text style={styles.label}>Pick a gem</Text>
-          <View style={styles.catRow}>
-            {['A', 'B', 'C', 'D'].map((k) => (
-              <CategoryPill
-                key={k}
-                cat={k}
-                active={pickerCat === k}
-                onPress={() => setPickerCat(k)}
-              />
-            ))}
+        {source === 'calendar' && diary.content ? (
+          <Text style={styles.body}>{diary.content}</Text>
+        ) : null}
+
+        {hatched && monster.reply_comment ? (
+          <View style={styles.commentBox}>
+            <Text style={styles.commentLabel}>From the reader</Text>
+            <Text style={styles.commentText}>{monster.reply_comment}</Text>
           </View>
-          <View
-            style={styles.gemGrid}
-            onLayout={(e) => setGridW(e.nativeEvent.layout.width)}
-          >
-            {gridW > 0 &&
-              gemList.map((g, idx) => {
-                const isSel =
-                  selectedGem && selectedGem.cat === pickerCat && selectedGem.value === g;
-                const cellW = Math.floor(gridW / 3);
-                return (
-                  <Pressable
-                    key={g}
-                    onPress={() => setSelectedGem({ cat: pickerCat, value: g })}
-                    style={({ pressed }) => [
-                      styles.gemCell,
-                      { width: cellW },
-                      isSel && styles.gemCellSel,
-                      { opacity: pressed ? 0.85 : 1 },
-                    ]}
-                  >
-                    <Gem cat={pickerCat} size={34} angle={0.5 + idx * 0.07} />
-                    <Text style={styles.gemCellText}>{g}</Text>
-                  </Pressable>
-                );
-              })}
-          </View>
+        ) : null}
+
+        {state === 'egg' && (
           <Pressable
-            disabled={!selectedGem}
-            onPress={() => {
-              if (!selectedGem) return;
-              onHatch && onHatch(diary.id, selectedGem);
-              onClose && onClose();
-            }}
+            onPress={() => onSendOut && onSendOut(diary.id)}
+            style={({ pressed }) => [
+              styles.actionBtn,
+              styles.sendBtn,
+              { opacity: pressed ? 0.85 : 1 },
+            ]}
+          >
+            <Text style={styles.actionText}>Send out</Text>
+          </Pressable>
+        )}
+
+        {state === 'sent' && (
+          <View style={styles.waitingBox}>
+            <Text style={styles.waitingText}>
+              Waiting for a response from the universe…
+            </Text>
+          </View>
+        )}
+
+        {state === 'replied' && (
+          <Pressable
+            onPress={() => onHatch && onHatch(diary.id)}
             style={({ pressed }) => [
               styles.actionBtn,
               styles.hatchBtn,
-              { opacity: !selectedGem ? 0.5 : pressed ? 0.85 : 1 },
+              { opacity: pressed ? 0.85 : 1 },
             ]}
           >
-            <Text style={styles.actionText}>
-              {selectedGem ? `Hatch with ${selectedGem.value}` : 'Pick a gem'}
-            </Text>
+            <Text style={styles.actionText}>Someone replied: hatch to see it.</Text>
           </Pressable>
-        </View>
-      ) : (
-        <Pressable
-          onPress={() => setPickerOpen(true)}
-          style={({ pressed }) => [
-            styles.actionBtn,
-            styles.hatchBtn,
-            { opacity: pressed ? 0.85 : 1 },
-          ]}
-        >
-          <Text style={styles.actionText}>Choose a gem</Text>
-        </Pressable>
-      )}
-    </Modal>
+        )}
+      </Modal>
     </>
   );
 }
@@ -303,52 +272,48 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  bodyInput: {
-    color: '#fff', fontSize: 14, lineHeight: 20,
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    minHeight: 90,
-    textAlignVertical: 'top',
-  },
-  editActions: {
-    flexDirection: 'row', justifyContent: 'flex-end',
-    marginTop: 8, marginBottom: 8,
-  },
-  editBtn: {
-    paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 8, marginLeft: 8,
-  },
-  editCancel: { backgroundColor: 'rgba(255,255,255,0.08)' },
-  editSave: { backgroundColor: '#6a60c4' },
-  editCancelText: { color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' },
-  editSaveText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  catRow: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 6, marginBottom: 10 },
-  gemGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start' },
-  gemCell: {
-    paddingVertical: 10,
-    alignItems: 'center',
+  commentBox: {
+    backgroundColor: 'rgba(106,96,196,0.12)',
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 12,
+    marginTop: 4,
+    marginBottom: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: '#6a60c4',
+  },
+  commentLabel: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
     marginBottom: 6,
+    textTransform: 'uppercase',
   },
-  gemCellSel: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
+  commentText: {
+    color: '#fff',
+    fontSize: 13,
+    lineHeight: 19,
+    fontStyle: 'italic',
   },
-  gemCellText: { color: '#fff', fontSize: 11, marginTop: 4 },
+  waitingBox: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  waitingText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
   actionBtn: {
     paddingVertical: 14,
     borderRadius: 14,
     alignItems: 'center',
     marginTop: 12,
   },
+  sendBtn: { backgroundColor: '#3a6fa0' },
   hatchBtn: { backgroundColor: '#6a60c4' },
-  recallBtn: { backgroundColor: '#3a6fa0' },
-  idlePill: { backgroundColor: 'rgba(255,255,255,0.08)' },
   actionText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  idleText: { color: 'rgba(255,255,255,0.6)', fontSize: 13 },
 });

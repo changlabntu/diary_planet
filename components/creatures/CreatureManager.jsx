@@ -7,7 +7,7 @@ import CreatureCard from './CreatureCard';
 import Gem from '../ui/Gem';
 import EmotionTag from '../ui/EmotionTag';
 import MoodDots from '../ui/MoodDots';
-import { ATTRIBUTES, fmtDate } from '../../theme';
+import { ATTRIBUTES, EGG_NAME, fmtDate } from '../../theme';
 
 const STATUS_KEYS = ['all', 'deployed', 'idle', 'starred'];
 const STATUS_LABELS = { all: 'Total', deployed: 'On planet', idle: 'Idle', starred: 'Starred' };
@@ -35,25 +35,36 @@ export default function CreatureManager({
   const [page, setPage] = useState(0);
   const [selectedId, setSelectedId] = useState(null);
   const [containerW, setContainerW] = useState(0);
+  const [showEggs, setShowEggs] = useState(false);
 
-  const counts = useMemo(
-    () => ({
-      all: monsters.length,
-      deployed: monsters.filter((m) => m.is_displayed).length,
-      idle: monsters.filter((m) => !m.is_displayed).length,
-      starred: monsters.filter((m) => m.starred).length,
-    }),
+  const eggCount = useMemo(
+    () => monsters.filter((m) => m.state !== 'hatched').length,
     [monsters],
   );
 
+  const visible = useMemo(
+    () => (showEggs ? monsters : monsters.filter((m) => m.state === 'hatched')),
+    [monsters, showEggs],
+  );
+
+  const counts = useMemo(
+    () => ({
+      all: visible.length,
+      deployed: visible.filter((m) => m.is_displayed).length,
+      idle: visible.filter((m) => !m.is_displayed).length,
+      starred: visible.filter((m) => m.starred).length,
+    }),
+    [visible],
+  );
+
   const attrCounts = useMemo(() => {
-    const c = { A: 0, B: 0, C: 0, D: 0 };
-    for (const m of monsters) if (c[m.attribute] != null) c[m.attribute]++;
+    const c = { A: 0, B: 0, C: 0, D: 0, U: 0 };
+    for (const m of visible) if (c[m.attribute] != null) c[m.attribute]++;
     return c;
-  }, [monsters]);
+  }, [visible]);
 
   const filtered = useMemo(() => {
-    let list = monsters;
+    let list = visible;
     if (status === 'deployed') list = list.filter((m) => m.is_displayed);
     else if (status === 'idle') list = list.filter((m) => !m.is_displayed);
     else if (status === 'starred') list = list.filter((m) => m.starred);
@@ -61,7 +72,7 @@ export default function CreatureManager({
     if (cat !== 'all') list = list.filter((m) => m.attribute === cat);
 
     const q = query.trim().toLowerCase();
-    if (q) list = list.filter((m) => m.name.toLowerCase().includes(q));
+    if (q) list = list.filter((m) => m.name?.toLowerCase().includes(q));
 
     const sorted = [...list].sort((a, b) => {
       if (sortBy === 'deployed' && a.is_displayed !== b.is_displayed) {
@@ -72,7 +83,7 @@ export default function CreatureManager({
       return sortBy === 'oldest' ? da - db : db - da;
     });
     return sorted;
-  }, [monsters, status, cat, query, sortBy]);
+  }, [visible, status, cat, query, sortBy]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
@@ -112,6 +123,14 @@ export default function CreatureManager({
             onPress={() => setCat(k)}
           />
         ))}
+        {showEggs && (
+          <CategoryPill
+            cat="U"
+            active={cat === 'U'}
+            label={`${ATTRIBUTES.U.label} (${attrCounts.U})`}
+            onPress={() => setCat('U')}
+          />
+        )}
       </View>
 
       <View style={styles.searchRow}>
@@ -122,6 +141,20 @@ export default function CreatureManager({
           placeholderTextColor="rgba(255,255,255,0.4)"
           style={styles.search}
         />
+        <Pressable
+          onPress={() => {
+            setShowEggs((v) => {
+              const next = !v;
+              if (!next && cat === 'U') setCat('all');
+              return next;
+            });
+          }}
+          style={[styles.sortBtn, showEggs && styles.toggleActive]}
+        >
+          <Text style={styles.sortText}>
+            {showEggs ? `Hide eggs` : `Show eggs${eggCount ? ` (${eggCount})` : ''}`}
+          </Text>
+        </Pressable>
         <Pressable
           onPress={() =>
             setSortBy((s) => SORT_OPTIONS[(SORT_OPTIONS.indexOf(s) + 1) % SORT_OPTIONS.length])
@@ -206,23 +239,35 @@ export default function CreatureManager({
 }
 
 function DetailPanel({ selected, onDeploy, onRecall, onStar }) {
+  const state = selected.state;
+  const hatched = state === 'hatched';
+  const displayCat = hatched ? selected.attribute : 'U';
+  const hintByState = {
+    egg: 'Send this out from the diary to start hatching',
+    sent: 'Awaiting a response from a reader',
+    replied: 'Ready to hatch — open the diary to reveal',
+  };
   return (
     <View style={styles.detail}>
       <View style={styles.detailHeader}>
-        <Text style={styles.detailName}>{selected.name}</Text>
-        <Gem cat={selected.attribute} size={22} angle={0.55} />
-        <Text style={styles.detailGem}>{selected.gem}</Text>
+        <Text style={styles.detailName}>{selected.name || EGG_NAME}</Text>
+        {hatched && (
+          <>
+            <Gem cat={displayCat} size={22} angle={0.55} />
+            <Text style={styles.detailGem}>{selected.gem}</Text>
+          </>
+        )}
       </View>
       {selected.diary && (
         <>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Mood</Text>
-            <MoodDots mood={selected.diary.mood_score} cat={selected.attribute} />
+            <MoodDots mood={selected.diary.mood_score} cat={displayCat} />
           </View>
           {selected.diary.emotions?.length > 0 && (
             <View style={styles.detailEmotions}>
               {selected.diary.emotions.map((e) => (
-                <EmotionTag key={e} label={e} cat={selected.attribute} />
+                <EmotionTag key={e} label={e} cat={displayCat} />
               ))}
             </View>
           )}
@@ -231,7 +276,11 @@ function DetailPanel({ selected, onDeploy, onRecall, onStar }) {
         </>
       )}
       <View style={styles.detailActions}>
-        {selected.is_displayed ? (
+        {!hatched ? (
+          <View style={[styles.actionBtn, styles.eggHint]}>
+            <Text style={styles.eggHintText}>{hintByState[state] || hintByState.egg}</Text>
+          </View>
+        ) : selected.is_displayed ? (
           <Pressable onPress={() => onRecall(selected.id)} style={[styles.actionBtn, styles.recallBtn]}>
             <Text style={styles.actionText}>Recall</Text>
           </Pressable>
@@ -273,6 +322,7 @@ const styles = StyleSheet.create({
     marginLeft: 8, paddingHorizontal: 12, paddingVertical: 8,
     borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)',
   },
+  toggleActive: { backgroundColor: ACCENT },
   sortText: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600' },
   gridWrap: {},
   row: { flexDirection: 'row' },
@@ -298,6 +348,8 @@ const styles = StyleSheet.create({
   deployBtn: { backgroundColor: DEPLOY_COLOR },
   recallBtn: { backgroundColor: RECALL_COLOR },
   starBtn: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  eggHint: { backgroundColor: 'rgba(255,255,255,0.06)' },
+  eggHintText: { color: 'rgba(255,255,255,0.6)', fontSize: 12, fontStyle: 'italic' },
   actionText: { color: '#fff', fontSize: 12, fontWeight: '600' },
   paginationRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 12 },
   pageBtn: {

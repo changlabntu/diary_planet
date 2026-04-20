@@ -3,15 +3,21 @@ import { View, Text, Pressable, StyleSheet } from 'react-native';
 import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
 import CreatureAvatar from '../ui/CreatureAvatar';
+import EggIcon from '../ui/EggIcon';
 import Gem from '../ui/Gem';
-import { ATTRIBUTES, BG, cardBg, fmtDate } from '../../theme';
+import { ATTRIBUTES, BG, EGG_NAME, cardBg, fmtDate } from '../../theme';
 
 export default function CreatureCard({ monster, width, selected, onPress, onStar }) {
-  const cat = monster.attribute;
-  const cg = cardBg(cat);
-  const attrMid = (ATTRIBUTES[cat] || ATTRIBUTES._).mid;
+  const state = monster.state;
+  const hatched = state === 'hatched';
+  // Don't leak the incoming attribute on replied eggs — show them as 'U'.
+  const displayCat = hatched ? monster.attribute : 'U';
+  const isEggLike = !hatched;
+  const cg = cardBg(displayCat);
+  const attrMid = (ATTRIBUTES[displayCat] || ATTRIBUTES._).mid;
   const cardW = width;
   const faceH = cardW;
+  const eggColor = isEggLike ? ATTRIBUTES.U.hi : monster.color;
 
   return (
     <Pressable
@@ -41,11 +47,20 @@ export default function CreatureCard({ monster, width, selected, onPress, onStar
           <Rect x={0} y={0} width={cardW} height={faceH} fill={`url(#cg-${monster.id})`} />
         </Svg>
         <View style={styles.faceOverlay}>
-          <CreatureAvatar
-            color={monster.color}
-            torsoColor={monster.torsoColor}
-            size={Math.min(64, cardW * 0.7)}
-          />
+          {isEggLike ? (
+            <EggIcon
+              size={Math.min(56, cardW * 0.6)}
+              color={eggColor}
+              pending={state === 'sent'}
+              ready={state === 'replied'}
+            />
+          ) : (
+            <CreatureAvatar
+              color={monster.color}
+              torsoColor={monster.torsoColor}
+              size={Math.min(64, cardW * 0.7)}
+            />
+          )}
         </View>
         <Pressable onPress={onStar} hitSlop={6} style={styles.starBtn}>
           <Text style={[styles.starText, monster.starred && { color: '#FFD45A' }]}>
@@ -57,9 +72,9 @@ export default function CreatureCard({ monster, width, selected, onPress, onStar
       <View style={styles.body}>
         <View style={styles.row}>
           <Text style={[styles.name, { color: monster.is_displayed ? '#17171a' : '#fff' }]} numberOfLines={1}>
-            {monster.name}
+            {monster.name || EGG_NAME}
           </Text>
-          <Gem cat={cat} size={14} angle={0.55} />
+          {hatched && <Gem cat={displayCat} size={14} angle={0.55} />}
         </View>
         <Text
           style={[

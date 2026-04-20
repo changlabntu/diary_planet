@@ -35,8 +35,8 @@ export default function ChordToggle({ chord, onChange, onReselect }) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
-    top: 52,
-    right: 14,
+    top: 12,
+    left: 60,
     zIndex: 50,
   },
   pill: {

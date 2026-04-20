@@ -1,18 +1,19 @@
-import React, { useMemo, useState } from 'react';
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native';
 
 import CreatureAvatar from '../ui/CreatureAvatar';
 import EggIcon from '../ui/EggIcon';
 import MoodDots from '../ui/MoodDots';
 import EmotionTag from '../ui/EmotionTag';
 import Gem from '../ui/Gem';
-import { ATTRIBUTES, BG, badge, fmtDate } from '../../theme';
+import { ATTRIBUTES, BG, EGG_NAME, badge, fmtDate } from '../../theme';
 
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const STATE_RANK = { replied: 0, hatched: 1, egg: 2, sent: 2 };
 
 function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 function firstDayOfMonth(y, m) { return new Date(y, m, 1).getDay(); }
@@ -42,7 +43,12 @@ export default function DiaryCalendar({ diaries, onSelectDiary }) {
           const dt = new Date(d.created_at);
           return dt.getFullYear() === viewYear && dt.getMonth() === viewMonth;
         })
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at)),
+        .sort((a, b) => {
+          const ra = STATE_RANK[a.monster?.state] ?? 2;
+          const rb = STATE_RANK[b.monster?.state] ?? 2;
+          if (ra !== rb) return ra - rb;
+          return new Date(b.created_at) - new Date(a.created_at);
+        }),
     [diaries, viewYear, viewMonth],
   );
 
@@ -136,7 +142,9 @@ export default function DiaryCalendar({ diaries, onSelectDiary }) {
                       <EggIcon
                         key={p.id}
                         size={10}
-                        color={ATTRIBUTES[p.attribute]?.hi || '#9DB9E8'}
+                        color={ATTRIBUTES.U.hi}
+                        pending={p.monster?.state === 'sent'}
+                        ready={p.monster?.state === 'replied'}
                       />
                     ),
                   )}
@@ -161,8 +169,60 @@ export default function DiaryCalendar({ diaries, onSelectDiary }) {
   );
 }
 
+const SHAKE_LEG_SHORT = 117; // was 350 — 3× faster
+const SHAKE_LEG_LONG = 233;  // was 700 — 3× faster
+const SHAKE_CYCLE_MS = SHAKE_LEG_SHORT + SHAKE_LEG_LONG + SHAKE_LEG_SHORT;
+const REST_CYCLES = 2;
+const SHAKE_CYCLES = 2;
+
+function SwingEgg({ active, children }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!active) {
+      anim.stopAnimation();
+      anim.setValue(0);
+      return undefined;
+    }
+    const shakeCycle = () => [
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: SHAKE_LEG_SHORT,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+      Animated.timing(anim, {
+        toValue: -1,
+        duration: SHAKE_LEG_LONG,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+      Animated.timing(anim, {
+        toValue: 0,
+        duration: SHAKE_LEG_SHORT,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }),
+    ];
+    const steps = [];
+    for (let i = 0; i < SHAKE_CYCLES; i++) steps.push(...shakeCycle());
+    steps.push(Animated.delay(SHAKE_CYCLE_MS * REST_CYCLES));
+    const loop = Animated.loop(Animated.sequence(steps));
+    loop.start();
+    return () => loop.stop();
+  }, [active, anim]);
+
+  const rotate = anim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-10deg', '10deg'],
+  });
+  return <Animated.View style={{ transform: [{ rotate }] }}>{children}</Animated.View>;
+}
+
 function EntryRow({ diary, onPress }) {
-  const cat = diary.attribute;
+  const state = diary.monster?.state || 'egg';
+  const hatched = state === 'hatched';
+  // Don't leak attribute pre-hatch, even if it's already set on a replied egg.
+  const cat = hatched ? diary.monster.attribute : 'U';
   const b = badge(cat);
   return (
     <Pressable
@@ -170,27 +230,36 @@ function EntryRow({ diary, onPress }) {
       style={({ pressed }) => [styles.row, pressed && { opacity: 0.8 }]}
     >
       <View style={styles.rowLeft}>
-        {diary.hatched && diary.monster ? (
+        {hatched && diary.monster ? (
           <CreatureAvatar
             color={diary.monster.color}
             torsoColor={diary.monster.torsoColor}
             size={36}
           />
         ) : (
-          <EggIcon size={28} color={ATTRIBUTES[cat]?.hi || '#9DB9E8'} />
+          <SwingEgg active={state === 'replied'}>
+            <EggIcon
+              size={28}
+              color={ATTRIBUTES.U.hi}
+              pending={state === 'sent'}
+              ready={state === 'replied'}
+            />
+          </SwingEgg>
         )}
       </View>
       <View style={{ flex: 1 }}>
         <View style={styles.rowHead}>
           <Text style={styles.rowName} numberOfLines={1}>
-            {diary.monster?.name || 'Unhatched'}
+            {diary.monster?.name || EGG_NAME}
           </Text>
-          <View style={[styles.rowPill, { backgroundColor: b.bg }]}>
-            <Text style={[styles.rowPillText, { color: b.color }]}>
-              {ATTRIBUTES[cat]?.label}
-            </Text>
-          </View>
-          {diary.monster?.gem && (
+          {hatched && (
+            <View style={[styles.rowPill, { backgroundColor: b.bg }]}>
+              <Text style={[styles.rowPillText, { color: b.color }]}>
+                {ATTRIBUTES[cat]?.label}
+              </Text>
+            </View>
+          )}
+          {hatched && diary.monster?.gem && (
             <View style={styles.rowGemPill}>
               <Gem cat={cat} size={12} angle={0.5} />
               <Text style={styles.rowGemText}>{diary.monster.gem}</Text>
