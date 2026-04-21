@@ -5,7 +5,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import Modal from '../ui/Modal';
 import CreatureAvatar from '../ui/CreatureAvatar';
 import EggIcon from '../ui/EggIcon';
-import Gem from '../ui/Gem';
+import GiftSymbol from '../ui/GiftSymbol';
 import MoodDots from '../ui/MoodDots';
 import EmotionTag from '../ui/EmotionTag';
 import {
@@ -95,9 +95,14 @@ export default function DiarySheet({
                   </Text>
                 </View>
                 {hatched && (
-                  <View style={styles.gemPill}>
-                    <Gem cat={attrCat} size={14} angle={0.6} />
-                    <Text style={styles.gemText}>{monster.gem}</Text>
+                  <View style={styles.giftPill}>
+                    <GiftSymbol
+                      shape={monster.gift_shape}
+                      cat={attrCat}
+                      size={14}
+                      angle={0.6}
+                    />
+                    <Text style={styles.giftText}>{monster.gift}</Text>
                   </View>
                 )}
               </View>
@@ -248,13 +253,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999, marginRight: 6,
   },
   pillText: { fontSize: 11, fontWeight: '600' },
-  gemPill: {
+  giftPill: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  gemText: { color: '#fff', fontSize: 11, marginLeft: 4 },
+  giftText: { color: '#fff', fontSize: 11, marginLeft: 4 },
   emotionRow: {
     flexDirection: 'row', flexWrap: 'wrap',
     justifyContent: 'flex-end',

@@ -4,7 +4,7 @@ import { View, Text, Pressable, StyleSheet, TextInput } from 'react-native';
 import Modal from '../ui/Modal';
 import CategoryPill from '../ui/CategoryPill';
 import CreatureCard from './CreatureCard';
-import Gem from '../ui/Gem';
+import GiftSymbol from '../ui/GiftSymbol';
 import EmotionTag from '../ui/EmotionTag';
 import MoodDots from '../ui/MoodDots';
 import { ATTRIBUTES, EGG_NAME, fmtDate } from '../../theme';
@@ -253,8 +253,13 @@ function DetailPanel({ selected, onDeploy, onRecall, onStar }) {
         <Text style={styles.detailName}>{selected.name || EGG_NAME}</Text>
         {hatched && (
           <>
-            <Gem cat={displayCat} size={22} angle={0.55} />
-            <Text style={styles.detailGem}>{selected.gem}</Text>
+            <GiftSymbol
+              shape={selected.gift_shape}
+              cat={displayCat}
+              size={22}
+              angle={0.55}
+            />
+            <Text style={styles.detailGift}>{selected.gift}</Text>
           </>
         )}
       </View>
@@ -334,7 +339,7 @@ const styles = StyleSheet.create({
   },
   detailHeader: { flexDirection: 'row', alignItems: 'center' },
   detailName: { fontSize: 15, fontWeight: '700', color: '#fff', marginRight: 8, flex: 1 },
-  detailGem: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginLeft: 6 },
+  detailGift: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginLeft: 6 },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8 },
   detailLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 12, marginRight: 8, fontWeight: '600' },
   detailEmotions: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },

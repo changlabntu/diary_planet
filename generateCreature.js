@@ -22,7 +22,8 @@ export function createEgg(diary, { id } = {}) {
     attribute: 'U',
     color: EGG_COLOR,
     torsoColor: EGG_COLOR,
-    gem: null,
+    gift: null,
+    gift_shape: null,
     rarity: null,
     reply_comment: null,
     replied_at: null,
@@ -36,19 +37,20 @@ export function sendMonster(monster) {
   return { ...monster, state: 'sent' };
 }
 
-export function applyReply(monster, { cat, value, comment }) {
+export function applyReply(monster, { cat, virtue, comment, shape }) {
   return {
     ...monster,
     state: 'replied',
     attribute: cat,
-    gem: value,
+    gift: virtue,
+    gift_shape: shape ?? null,
     reply_comment: comment ?? null,
     replied_at: new Date().toISOString(),
   };
 }
 
 export function hatchMonster(monster, diary) {
-  const rand = seededRand(`diary-${diary.id}-gem-${monster.gem}`);
+  const rand = seededRand(`diary-${diary.id}-gift-${monster.gift}`);
   const name = NAMES[Math.floor(rand() * NAMES.length)];
   const { color, torsoColor } = pickColors(monster.attribute, diary.mood_score, rand);
   const emotionCount = diary.emotions?.length ?? 0;

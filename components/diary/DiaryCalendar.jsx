@@ -5,7 +5,7 @@ import CreatureAvatar from '../ui/CreatureAvatar';
 import EggIcon from '../ui/EggIcon';
 import MoodDots from '../ui/MoodDots';
 import EmotionTag from '../ui/EmotionTag';
-import Gem from '../ui/Gem';
+import GiftSymbol from '../ui/GiftSymbol';
 import { ATTRIBUTES, BG, EGG_NAME, badge, fmtDate } from '../../theme';
 
 const MONTH_NAMES = [
@@ -259,10 +259,15 @@ function EntryRow({ diary, onPress }) {
               </Text>
             </View>
           )}
-          {hatched && diary.monster?.gem && (
-            <View style={styles.rowGemPill}>
-              <Gem cat={cat} size={12} angle={0.5} />
-              <Text style={styles.rowGemText}>{diary.monster.gem}</Text>
+          {hatched && diary.monster?.gift && (
+            <View style={styles.rowGiftPill}>
+              <GiftSymbol
+                shape={diary.monster.gift_shape}
+                cat={cat}
+                size={12}
+                angle={0.5}
+              />
+              <Text style={styles.rowGiftText}>{diary.monster.gift}</Text>
             </View>
           )}
         </View>
@@ -326,13 +331,13 @@ const styles = StyleSheet.create({
     borderRadius: 999, marginRight: 6,
   },
   rowPillText: { fontSize: 10, fontWeight: '600' },
-  rowGemPill: {
+  rowGiftPill: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 6, paddingVertical: 2,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderRadius: 999,
   },
-  rowGemText: { color: '#fff', fontSize: 10, marginLeft: 4 },
+  rowGiftText: { color: '#fff', fontSize: 10, marginLeft: 4 },
   rowMeta: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', marginTop: 4 },
   rowDate: { color: 'rgba(255,255,255,0.55)', fontSize: 11, marginRight: 8 },
   empty: { color: 'rgba(255,255,255,0.4)', fontStyle: 'italic', padding: 16 },

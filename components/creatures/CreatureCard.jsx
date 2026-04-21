@@ -4,7 +4,7 @@ import Svg, { Defs, RadialGradient, Stop, Rect } from 'react-native-svg';
 
 import CreatureAvatar from '../ui/CreatureAvatar';
 import EggIcon from '../ui/EggIcon';
-import Gem from '../ui/Gem';
+import GiftSymbol from '../ui/GiftSymbol';
 import { ATTRIBUTES, BG, EGG_NAME, cardBg, fmtDate } from '../../theme';
 
 export default function CreatureCard({ monster, width, selected, onPress, onStar }) {
@@ -28,7 +28,7 @@ export default function CreatureCard({ monster, width, selected, onPress, onStar
           width: cardW,
           opacity: pressed ? 0.9 : 1,
           borderColor: selected ? attrMid : 'transparent',
-          backgroundColor: monster.is_displayed ? '#fff' : BG.SHEET,
+          backgroundColor: BG.SHEET,
         },
       ]}
     >
@@ -71,19 +71,19 @@ export default function CreatureCard({ monster, width, selected, onPress, onStar
       </View>
       <View style={styles.body}>
         <View style={styles.row}>
-          <Text style={[styles.name, { color: monster.is_displayed ? '#17171a' : '#fff' }]} numberOfLines={1}>
+          <Text style={styles.name} numberOfLines={1}>
             {monster.name || EGG_NAME}
           </Text>
-          {hatched && <Gem cat={displayCat} size={14} angle={0.55} />}
+          {hatched && (
+            <GiftSymbol
+              shape={monster.gift_shape}
+              cat={displayCat}
+              size={14}
+              angle={0.55}
+            />
+          )}
         </View>
-        <Text
-          style={[
-            styles.date,
-            { color: monster.is_displayed ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.55)' },
-          ]}
-        >
-          {monster.dateLabel}
-        </Text>
+        <Text style={styles.date}>{monster.dateLabel}</Text>
       </View>
     </Pressable>
   );
@@ -108,6 +108,6 @@ const styles = StyleSheet.create({
   },
   body: { paddingHorizontal: 6, paddingVertical: 4 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  name: { fontSize: 11, fontWeight: '600', flex: 1, marginRight: 4 },
-  date: { fontSize: 9, marginTop: 1 },
+  name: { fontSize: 11, fontWeight: '600', flex: 1, marginRight: 4, color: '#fff' },
+  date: { fontSize: 9, marginTop: 1, color: 'rgba(255,255,255,0.55)' },
 });

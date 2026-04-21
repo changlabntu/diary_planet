@@ -12,10 +12,9 @@ import Planet from './Planet';
 import Moon from './Moon';
 import OrbitingBody from './OrbitingBody';
 import PlanetMenu from './PlanetMenu';
-import ModeToggle from './ModeToggle';
-import ChordToggle from './ChordToggle';
 import PeerPortal from './PeerPortal';
 import CreatureAvatar from '../ui/CreatureAvatar';
+import CycleButton from '../ui/CycleButton';
 import MoonCanvas from '../../assets/MoonCanvas';
 import { CHIME_NOTES_MAJOR, CHIME_NOTES_MINOR, SECRET_SONG, playChime } from '../../assets/chimeSynth';
 import { BG, darken } from '../../theme';
@@ -175,12 +174,6 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
   useEffect(() => { chordRef.current = chord; }, [chord]);
   const secretCursorRef = useRef(0);
   const chimeLastPlayRef = useRef(0);
-  useEffect(() => {
-    if (chord === 'secret') {
-      secretCursorRef.current = 0;
-      chimeLastPlayRef.current = 0;
-    }
-  }, [chord]);
 
   const songTimersRef = useRef([]);
   const playSecretSong = useCallback(() => {
@@ -189,6 +182,14 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
       setTimeout(() => playChime(freq), i * SONG_NOTE_INTERVAL),
     );
   }, []);
+
+  useEffect(() => {
+    if (chord === 'secret') {
+      secretCursorRef.current = 0;
+      chimeLastPlayRef.current = 0;
+      playSecretSong();
+    }
+  }, [chord, playSecretSong]);
   useEffect(() => () => {
     songTimersRef.current.forEach(clearTimeout);
     songTimersRef.current = [];
@@ -574,9 +575,9 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                       craterColor: 'rgba(40,80,140,0.35)',
                       glowColor: '#7AA8E0',
                     },
-                    size: 250,
+                    size: 100,
                     radius: W * 1.95,
-                    rpm: 0.05,
+                    rpm: 1,
                     phase: Math.PI / 8 * -2,
                     selfSpinRpm: 0.1,
                   },
@@ -683,11 +684,24 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
           <Text style={styles.hitCounterText}>Hits {slingHits}</Text>
         </View>
       </View>
-      <ModeToggle mode={mode} onChange={onModeChange} />
-      <ChordToggle
-        chord={chord}
+      <CycleButton
+        value={mode}
+        options={[
+          { key: 'move', label: 'Move' },
+          { key: 'slingshot', label: 'Sling' },
+        ]}
+        onChange={onModeChange}
+        style={{ position: 'absolute', top: 12, right: 14, zIndex: 50 }}
+      />
+      <CycleButton
+        value={chord}
+        options={[
+          { key: 'major', label: 'Maj' },
+          { key: 'minor', label: 'Min' },
+          { key: 'secret', label: 'Sec' },
+        ]}
         onChange={setChord}
-        onReselect={(m) => { if (m === 'secret') playSecretSong(); }}
+        style={{ position: 'absolute', top: 12, left: 60, zIndex: 50 }}
       />
       <PeerPortal onPress={() => onMenuSelect && onMenuSelect('reader')} />
     </View>

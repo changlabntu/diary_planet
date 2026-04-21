@@ -13,7 +13,7 @@ export const EGG_NAME = 'Egg';
 
 export const DECIDE_BLUE = '#5EDCFF';
 
-export const GEMS = {
+export const VIRTUES = {
   A: ['Humility', 'Prudence', 'Passion', 'Openness', 'Growth', 'Rationality'],
   B: ['Care', 'Kindness', 'Forgiveness', 'Generosity', 'Genuineness', 'Faithfulness'],
   C: ['Creativity', 'Curiosity', 'Judgement', 'Bravery', 'Perseverance', 'Diligence'],
