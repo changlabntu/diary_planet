@@ -52,7 +52,6 @@ const WALL_PAD_BOTTOM = 6;          // inset from viewport bottom
 const WALL_BOUNCE = 0.3;            // velocity retained after wall hit
 const SPIN_DURATION_MIN = 1000;      // ms — fastest possible hit-spin
 const SPIN_DURATION_MAX = 2000;      // ms — slowest possible hit-spin
-const SONG_NOTE_INTERVAL = 280;      // ms between notes when auto-playing the secret song
 const CHIME_MIN_INTERVAL = 120;      // ms — minimum gap between any collision-driven chimes (all chord modes)
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
@@ -175,25 +174,12 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
   const secretCursorRef = useRef(0);
   const chimeLastPlayRef = useRef(0);
 
-  const songTimersRef = useRef([]);
-  const playSecretSong = useCallback(() => {
-    songTimersRef.current.forEach(clearTimeout);
-    songTimersRef.current = SECRET_SONG.map((freq, i) =>
-      setTimeout(() => playChime(freq), i * SONG_NOTE_INTERVAL),
-    );
-  }, []);
-
   useEffect(() => {
     if (chord === 'secret') {
       secretCursorRef.current = 0;
       chimeLastPlayRef.current = 0;
-      playSecretSong();
     }
-  }, [chord, playSecretSong]);
-  useEffect(() => () => {
-    songTimersRef.current.forEach(clearTimeout);
-    songTimersRef.current = [];
-  }, []);
+  }, [chord]);
 
   const deployedRef = useRef(deployed);
   useEffect(() => { deployedRef.current = deployed; }, [deployed]);
