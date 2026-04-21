@@ -54,7 +54,7 @@ const WALL_BOUNCE = 0.3;            // velocity retained after wall hit
 const SPIN_DURATION_MIN = 1000;      // ms — fastest possible hit-spin
 const SPIN_DURATION_MAX = 2000;      // ms — slowest possible hit-spin
 const SONG_NOTE_INTERVAL = 280;      // ms between notes when auto-playing the secret song
-const SECRET_MIN_INTERVAL = 200;     // ms — minimum gap between collision-driven secret notes
+const CHIME_MIN_INTERVAL = 120;      // ms — minimum gap between any collision-driven chimes (all chord modes)
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
@@ -174,11 +174,11 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
   const chordRef = useRef(chord);
   useEffect(() => { chordRef.current = chord; }, [chord]);
   const secretCursorRef = useRef(0);
-  const secretLastPlayRef = useRef(0);
+  const chimeLastPlayRef = useRef(0);
   useEffect(() => {
     if (chord === 'secret') {
       secretCursorRef.current = 0;
-      secretLastPlayRef.current = 0;
+      chimeLastPlayRef.current = 0;
     }
   }, [chord]);
 
@@ -333,13 +333,13 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
                 const ring = (x) => {
                   const slot = states.indexOf(x);
                   if (slot < 0) return;
+                  const nowMs =
+                    typeof performance !== 'undefined' && performance.now
+                      ? performance.now()
+                      : Date.now();
+                  if (nowMs - chimeLastPlayRef.current < CHIME_MIN_INTERVAL) return;
+                  chimeLastPlayRef.current = nowMs;
                   if (chordRef.current === 'secret') {
-                    const nowMs =
-                      typeof performance !== 'undefined' && performance.now
-                        ? performance.now()
-                        : Date.now();
-                    if (nowMs - secretLastPlayRef.current < SECRET_MIN_INTERVAL) return;
-                    secretLastPlayRef.current = nowMs;
                     const freq = SECRET_SONG[secretCursorRef.current % SECRET_SONG.length];
                     secretCursorRef.current =
                       (secretCursorRef.current + 1) % SECRET_SONG.length;
