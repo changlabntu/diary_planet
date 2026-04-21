@@ -25,6 +25,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx expo export -p web
+      - run: cp -r spec dist/spec
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
