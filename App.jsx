@@ -35,6 +35,7 @@ export default function App() {
   const [conversationDiaryId, setConversationDiaryId] = useState(null);
   const [managerOpen, setManagerOpen] = useState(false);
   const [planetMode, setPlanetMode] = useState('slingshot');
+  const [planetUltraZoom, setPlanetUltraZoom] = useState(false);
   const [role, setRole] = useState('author');
   const [readerJournal, setReaderJournal] = useState(null);
 
@@ -197,6 +198,7 @@ export default function App() {
             onMenuSelect={handlePlanetMenuSelect}
             mode={planetMode}
             onModeChange={setPlanetMode}
+            onUltraZoomChange={setPlanetUltraZoom}
           />
         );
       case 'calendar':
@@ -224,7 +226,7 @@ export default function App() {
         <SafeAreaView style={styles.root} edges={['top']}>
           <View style={styles.screen}>
             {renderScreen()}
-            {role === 'author' && (
+            {role === 'author' && !planetUltraZoom && (
               <BottomNav
                 navKey={navKey}
                 onChange={setNavKey}

@@ -1,10 +1,12 @@
 import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
 import { GestureDetector, Gesture } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   runOnJS,
+  withTiming,
+  Easing,
 } from 'react-native-reanimated';
 
 import Sky from './Sky';
@@ -13,6 +15,7 @@ import Moon from './Moon';
 import OrbitingBody from './OrbitingBody';
 import PlanetMenu from './PlanetMenu';
 import PeerPortal from './PeerPortal';
+import UltraZoomScreen from './UltraZoomScreen';
 import CreatureAvatar from '../ui/CreatureAvatar';
 import CycleButton from '../ui/CycleButton';
 import MoonCanvas from '../../assets/MoonCanvas';
@@ -156,7 +159,7 @@ function pickWanderTarget(W, H, sc) {
   return { x: tx, y: ty };
 }
 
-export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, onMenuSelect, mode = 'slingshot', onModeChange }) {
+export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager, onMenuSelect, mode = 'slingshot', onModeChange, onUltraZoomChange }) {
   const modeRef = useRef(mode);
   useEffect(() => { modeRef.current = mode; }, [mode]);
   const deployed = useMemo(() => monsters.filter((m) => m.state === 'hatched' && m.is_displayed), [monsters]);
@@ -171,6 +174,12 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
   const [chord, setChord] = useState('major');
   const chordRef = useRef(chord);
   useEffect(() => { chordRef.current = chord; }, [chord]);
+  const [ultraZoomMode, setUltraZoomMode] = useState(false);
+  const ultraZoomModeRef = useRef(ultraZoomMode);
+  useEffect(() => {
+    ultraZoomModeRef.current = ultraZoomMode;
+    if (onUltraZoomChange) onUltraZoomChange(ultraZoomMode);
+  }, [ultraZoomMode, onUltraZoomChange]);
   const secretCursorRef = useRef(0);
   const chimeLastPlayRef = useRef(0);
 
@@ -197,6 +206,11 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
       typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
 
     const step = (now) => {
+      if (ultraZoomModeRef.current) {
+        last = now;
+        raf = requestAnimationFrame(step);
+        return;
+      }
       const dt = Math.min(now - last, 48);
       last = now;
       const states = statesRef.current;
@@ -411,6 +425,24 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
     transform: [{ scale: scale.value }],
   }));
 
+  const beginUltraZoom = useCallback(() => {
+    if (ultraZoomModeRef.current) return;
+    const finish = () => setUltraZoomMode(true);
+    if (Math.abs(scale.value - MIN_ZOOM) < 0.005) {
+      scale.value = MIN_ZOOM;
+      finish();
+      return;
+    }
+    scale.value = withTiming(
+      MIN_ZOOM,
+      { duration: 500, easing: Easing.inOut(Easing.cubic) },
+      (finished) => {
+        'worklet';
+        if (finished) runOnJS(finish)();
+      },
+    );
+  }, [scale]);
+
   const onWheel =
     Platform.OS === 'web'
       ? (e) => {
@@ -546,7 +578,7 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
             worldStyle,
           ]}
         >
-          {W > 0 && H > 0 && (
+          {W > 0 && H > 0 && !ultraZoomMode && (
             <>
               <Sky width={W * WORLD_SCALE} height={H * WORLD_SCALE} />
               {(() => {
@@ -690,6 +722,27 @@ export default function PlanetScreen({ monsters, onSelectCreature, onOpenManager
         style={{ position: 'absolute', top: 12, left: 60, zIndex: 50 }}
       />
       <PeerPortal onPress={() => onMenuSelect && onMenuSelect('reader')} />
+      {!ultraZoomMode && (
+        <View style={styles.ultraZoomWrap} pointerEvents="box-none">
+          <Pressable
+            onPress={beginUltraZoom}
+            style={({ pressed }) => [styles.ultraZoomBtn, { opacity: pressed ? 0.85 : 1 }]}
+            hitSlop={8}
+          >
+            <Text style={styles.ultraZoomLabel}>Zoom ✕20</Text>
+          </Pressable>
+        </View>
+      )}
+      {ultraZoomMode && W > 0 && H > 0 && (
+        <UltraZoomScreen
+          width={W}
+          height={H}
+          worldScale={7}
+          initialScale={MIN_ZOOM}
+          targetScale={MIN_ZOOM / 20}
+          onExit={() => setUltraZoomMode(false)}
+        />
+      )}
     </View>
   );
 }
@@ -747,5 +800,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     letterSpacing: 0.3,
+  },
+  ultraZoomWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 72,
+    alignItems: 'center',
+    zIndex: 50,
+  },
+  ultraZoomBtn: {
+    backgroundColor: 'rgba(18,12,40,0.72)',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  ultraZoomLabel: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

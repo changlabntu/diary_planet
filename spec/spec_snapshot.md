@@ -1,4 +1,4 @@
-# Diary Planet — State Snapshot (2026-04-21)
+# Diary Planet — Spec Snapshot (2026-04-21)
 
 A point-in-time description of the codebase as it stands. Source of truth is the code under `diary_planet/`; this doc names files and line-anchored behaviors so a future reader can orient quickly. Supersedes `0420.md` (primary change: the egg → hatched path has been split into a four-state send/reply loop driven by a peer "reader" role). For the long-form rebuild rationale, see `diary-planet-rebuild-spec-v2.md`; for the conceptual model behind journals, monsters, and eggs, see `journal_monster_spec.md`.
 
